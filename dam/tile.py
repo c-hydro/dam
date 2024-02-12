@@ -57,6 +57,7 @@ def split_in_tiles(input: str,
             tile_file = output.format(tile=it+jt*nx)
             tile_ds = gdal.Translate('', input, format='MEM', srcWin=[xoff, yoff, tile_xsize, tile_ysize])
             write_geotiff_fromGDAL(tile_ds, tile_file)
+            outfiles.append(tile_file)
     
     return outfiles
 
