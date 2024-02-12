@@ -47,6 +47,7 @@ def split_in_tiles(input: str,
     nx = len(xsizes)
     ny = len(ysizes)
 
+    outfiles = []
     for it in range(nx):
         for jt in range(ny):
             xoff = sum(xsizes[:it])
@@ -56,6 +57,8 @@ def split_in_tiles(input: str,
             tile_file = output.format(tile=it+jt*nx)
             tile_ds = gdal.Translate('', input, format='MEM', srcWin=[xoff, yoff, tile_xsize, tile_ysize])
             write_geotiff_fromGDAL(tile_ds, tile_file)
+    
+    return outfiles
 
 def optimal_sizes(N, n):
     pieces = N // n
