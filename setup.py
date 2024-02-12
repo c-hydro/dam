@@ -17,9 +17,13 @@ setup(
         'Programming Language :: Python :: 3.12'
     ],
     keywords='meteorological data, satellite data, climatological data, environmental data, raster data,\
-        xarray, netcdf, hdf5, grib, hdf4, hdf-eos, hdf-eos5, geotiff',
+        xarray, netcdf, grib, hdf-eos, hdf-eos5, geotiff',
     install_requires=[
-        'gdal[numpy] >= 3.4.3'
+        'gdal[numpy]>=3.4.3',
+        'numpy>=1.24.0',
+        'xarray>=2023.9.0',
+        'rioxarray>=0.7.1',
+        'unpackqa>=0.1.0'
     ],
     python_requires='>=3.10',
     test_suite='tests',
