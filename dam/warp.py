@@ -1,6 +1,7 @@
 from osgeo import gdal, gdalconst
 
 from typing import Optional
+import os
 
 from .io_geotiff import read_geotiff_asGDAL, write_geotiff_fromGDAL
 
@@ -47,6 +48,7 @@ def match_grid(input: str,
     input_bounds = [input_transform[0], input_transform[3], input_transform[0] + input_transform[1] * input_ds.RasterXSize,
                     input_transform[3] + input_transform[5] * input_ds.RasterYSize]
     
+    os.makedirs(os.path.dirname(output), exist_ok=True)
     gdal.Warp(output, input, outputBounds=input_bounds, outputBoundsSRS = input_projection,
               srcSRS=input_projection, dstSRS=grid_projection,
               xRes=grid_transform[1], yRes=grid_transform[5], resampleAlg=resampling,

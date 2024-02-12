@@ -12,9 +12,11 @@ def read_geotiff_asXarray(filename):
     return rxr.open_rasterio(filename)
 
 def write_geotiff_fromXarray(data, filename):
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
     data.rio.to_raster(filename, compress='LZW')
 
 def write_geotiff_fromGDAL(ds, filename):
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
     gdal.Translate(filename, ds, creationOptions=['COMPRESS=LZW'])
 
 def read_geotiff_singleband(filename):
