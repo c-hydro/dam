@@ -1,14 +1,17 @@
 from osgeo import gdal, gdalconst
+import tempfile
 
 from typing import Optional
+import numpy as np
 import os
 
-from .io_geotiff import read_geotiff_asGDAL, write_geotiff_fromGDAL
+from .io_geotiff import read_geotiff_asGDAL, write_geotiff_singleband, read_geotiff_singleband
 
 def match_grid(input: str,
                grid: str,
                resampling_method: str = 'NearestNeighbour',
                nodata_value: Optional[float] = None,
+               nodata_threshold: Optional[float] = None,
                output: Optional[str] = None) -> str:
     
     _resampling_methods = ['NearestNeighbour', 'Bilinear',
@@ -54,5 +57,25 @@ def match_grid(input: str,
               xRes=grid_transform[1], yRes=grid_transform[5], resampleAlg=resampling,
               options=['NUM_THREADS=ALL_CPUS'],
               format='GTiff', creationOptions=['COMPRESS=LZW'], multithread=True)
+    
+    if nodata_threshold is not None:
+        # make a mask of the nodata values in the original input
+        if np.isnan(nodata_value):
+            mask = np.isnan(input_ds.GetRasterBand(1).ReadAsArray())
+        else:
+            mask = input_ds.GetRasterBand(1).ReadAsArray() == nodata_value
+        with tempfile.TemporaryDirectory() as tempdir:
+            maskfile = os.path.join(tempdir, 'nan_mask.tif')
+            write_geotiff_singleband(maskfile, input_transform, input_projection,mask)
+            mask = None
+
+            avg_nan = match_grid(maskfile, grid, 'Average')
+
+            # set the output to nodata where the value of mask is > nodata_threshold
+            _,_,mask = read_geotiff_singleband(avg_nan)
+            mask = mask > nodata_threshold
+            geotransform,geoproj,output_array = read_geotiff_singleband(output)
+            output_array[mask] = nodata_value
+            write_geotiff_singleband(output, geotransform, geoproj, output_array)
     
     return output
