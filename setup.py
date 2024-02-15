@@ -1,4 +1,8 @@
 from setuptools import setup, find_packages
+from subprocess import check_output
+
+# get the version of gdal-config to use as a requirement (from bash)
+gdalconfig_version = check_output('gdal-config --version', shell=True).decode('utf-8').strip()
 
 setup(
     name='dam',
@@ -19,7 +23,7 @@ setup(
     keywords='meteorological data, satellite data, climatological data, environmental data, raster data,\
         xarray, netcdf, grib, hdf-eos, hdf-eos5, geotiff',
     install_requires=[
-        'gdal[numpy]>=3.4.3',
+        f'gdal[numpy]=={gdalconfig_version}',
         'numpy>=1.24.0',
         'xarray>=2023.9.0',
         'rioxarray>=0.7.1',
