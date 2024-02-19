@@ -4,10 +4,12 @@ import numpy as np
 
 from typing import Optional
 
-from .io_geotiff import read_geotiff_asGDAL, write_geotiff_fromGDAL
+from .utils.io_geotiff import read_geotiff_asGDAL, write_geotiff_fromGDAL
+from .utils.rm import remove_file
 
 def combine_tiles(inputs: list[str],
-                  output: Optional[str] = None) -> str:
+                  output: Optional[str] = None,
+                  rm_input: bool = False) -> str:
     """
     Mosaic a set of input rasters.
     """
@@ -21,11 +23,16 @@ def combine_tiles(inputs: list[str],
     out_ds = gdal.Warp('', inputs, format = 'MEM', options=['NUM_THREADS=ALL_CPUS'])
     write_geotiff_fromGDAL(out_ds, output)
 
+    if rm_input:
+        for input in inputs:
+            remove_file(input)
+
     return output
 
 def split_in_tiles(input: str,
                    tile_size: int|tuple[int, int] = 1024,
-                   output: Optional[str] = None) -> list[str]:
+                   output: Optional[str] = None,
+                   rm_input: bool = False) -> list[str]:
     """
     Split a raster into tiles.
     """
@@ -58,6 +65,9 @@ def split_in_tiles(input: str,
             tile_ds = gdal.Translate('', input, format='MEM', srcWin=[xoff, yoff, tile_xsize, tile_ysize])
             write_geotiff_fromGDAL(tile_ds, tile_file)
             outfiles.append(tile_file)
+
+    if rm_input:
+        remove_file(input)
     
     return outfiles
 

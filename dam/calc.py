@@ -3,12 +3,14 @@ import rioxarray
 
 from typing import Optional
 
-from .io_geotiff import read_geotiff_asXarray, write_geotiff_fromXarray
+from .utils.io_geotiff import read_geotiff_asXarray, write_geotiff_fromXarray
+from .utils.rm import remove_file
 
 def apply_scale_factor(input: str,
                        scale_factor: float,
                        nodata_value: float = np.nan,
-                       destination: Optional[str] = None) -> str:
+                       destination: Optional[str] = None,
+                       rm_input: bool = False) -> str:
     """
     Applies a scale factor to a raster.
     """
@@ -30,4 +32,7 @@ def apply_scale_factor(input: str,
     data = data.rio.write_nodata(nodata_value)
     write_geotiff_fromXarray(data, destination)
 
+    if rm_input:
+        remove_file(input)
+    
     return destination

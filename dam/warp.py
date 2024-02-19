@@ -5,14 +5,16 @@ from typing import Optional
 import numpy as np
 import os
 
-from .io_geotiff import read_geotiff_asGDAL, write_geotiff_singleband, read_geotiff_singleband
+from .utils.io_geotiff import read_geotiff_asGDAL, write_geotiff_singleband, read_geotiff_singleband
+from .utils.rm import remove_file
 
 def match_grid(input: str,
                grid: str,
                resampling_method: str = 'NearestNeighbour',
                nodata_value: Optional[float] = None,
                nodata_threshold: Optional[float] = None,
-               output: Optional[str] = None) -> str:
+               output: Optional[str] = None,
+               rm_input: bool = False) -> str:
     
     _resampling_methods = ['NearestNeighbour', 'Bilinear',
                            'Cubic', 'CubicSpline',
@@ -77,5 +79,9 @@ def match_grid(input: str,
             geotransform,geoproj,output_array = read_geotiff_singleband(output)
             output_array[mask] = nodata_value
             write_geotiff_singleband(output, geotransform, geoproj, output_array)
+    
+    input_ds = None
+    if rm_input:
+        remove_file(input)
     
     return output

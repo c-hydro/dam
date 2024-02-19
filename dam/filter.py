@@ -7,7 +7,8 @@ import os
 
 import unpackqa
 
-from .io_geotiff import read_geotiff_asXarray, write_geotiff_fromXarray
+from .utils.io_geotiff import read_geotiff_asXarray, write_geotiff_fromXarray
+from .utils.rm import remove_file
 
 ### functions useful for filtering data
 # all these functions should be applied to a single band GeoTIFF file (that is the first imput of the function)
@@ -16,7 +17,8 @@ from .io_geotiff import read_geotiff_asXarray, write_geotiff_fromXarray
 def keep_valid_range(input: str,
                      valid_range: tuple[float],
                      nodata_value: float|int = np.nan,
-                     destination: Optional[str] = None) -> str:
+                     destination: Optional[str] = None,
+                     rm_input: bool = False) -> str:
     """
     Keep only the values in the valid range.
     """
@@ -29,6 +31,9 @@ def keep_valid_range(input: str,
     data = data.rio.write_nodata(nodata_value)
     write_geotiff_fromXarray(data, destination)
 
+    if rm_input:
+        remove_file(input)
+
     return destination
 
 def apply_binary_mask(input: str,
@@ -36,7 +41,8 @@ def apply_binary_mask(input: str,
                       keep: dict[str, list[int]],
                       nodata_value: float|int = np.nan,
                       get_masks: bool = False,
-                      destination: Optional[str] = None) -> str:
+                      destination: Optional[str] = None,
+                      rm_input: bool = False) -> str:
     """
     Apply a bitwise mask to the input. These are for example the QA flags of MODIS and VIIRS products.
     The rules are defined in a dictionary called keep, where the key is bit numbers in string format and the value is a list of values that should be kept.
@@ -78,13 +84,18 @@ def apply_binary_mask(input: str,
 
     data = data.rio.write_nodata(nodata_value)
     write_geotiff_fromXarray(data, destination)
+
+    if rm_input:
+        remove_file(input)
+
     return destination
     
 def apply_raster_mask(input: str,
                       mask: str,
                       filter_values: list[float|int] = [np.nan],
                       nodata_value: float|int = np.nan,
-                      destination: Optional[str] = None) -> xr.DataArray:
+                      destination: Optional[str] = None,
+                      rm_input: bool = False) -> xr.DataArray:
     """
     Apply a raster map to the input. The raster map is a DataArray with the same shape as the input, where each value corresponds to a category.
     The input is masked where the raster map has the nodata value.
@@ -100,4 +111,8 @@ def apply_raster_mask(input: str,
 
     data = data.rio.write_nodata(nodata_value)
     write_geotiff_fromXarray(data, destination)
+
+    if rm_input:
+        remove_file(input)
+    
     return destination
