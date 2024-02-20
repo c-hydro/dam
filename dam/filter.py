@@ -42,7 +42,8 @@ def apply_binary_mask(input: str,
                       nodata_value: float|int = np.nan,
                       get_masks: bool = False,
                       destination: Optional[str] = None,
-                      rm_input: bool = False) -> str:
+                      rm_input: bool = False,
+                      rm_mask:  bool = False) -> str:
     """
     Apply a bitwise mask to the input. These are for example the QA flags of MODIS and VIIRS products.
     The rules are defined in a dictionary called keep, where the key is bit numbers in string format and the value is a list of values that should be kept.
@@ -88,6 +89,9 @@ def apply_binary_mask(input: str,
     if rm_input:
         remove_file(input)
 
+    if rm_mask:
+        remove_file(mask)
+
     return destination
     
 def apply_raster_mask(input: str,
@@ -95,10 +99,11 @@ def apply_raster_mask(input: str,
                       filter_values: list[float|int] = [np.nan],
                       nodata_value: float|int = np.nan,
                       destination: Optional[str] = None,
-                      rm_input: bool = False) -> xr.DataArray:
+                      rm_input: bool = False,
+                      rm_mask: bool = False) -> xr.DataArray:
     """
     Apply a raster map to the input. The raster map is a DataArray with the same shape as the input, where each value corresponds to a category.
-    The input is masked where the raster map has the nodata value.
+    The input is masked (set to nodata_value) where the raster map has the filter_values.
     """
     if destination is None:
         destination = input.replace('.tif', '_masked.tif')
@@ -114,5 +119,8 @@ def apply_raster_mask(input: str,
 
     if rm_input:
         remove_file(input)
+    
+    if rm_mask:
+        remove_file(mask)
     
     return destination
