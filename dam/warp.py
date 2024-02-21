@@ -49,12 +49,14 @@ def match_grid(input: str,
     # Get the resampling method
     resampling = getattr(gdalconst, f'GRA_{resampling_method}')
 
-    # get the output bounds
-    input_bounds = [input_transform[0], input_transform[3], input_transform[0] + input_transform[1] * input_ds.RasterXSize,
-                    input_transform[3] + input_transform[5] * input_ds.RasterYSize]
+    # get the output bounds = the grid bounds
+    # input_bounds = [input_transform[0], input_transform[3], input_transform[0] + input_transform[1] * input_ds.RasterXSize,
+    #                 input_transform[3] + input_transform[5] * input_ds.RasterYSize]
+    output_bounds = [grid_transform[0], grid_transform[3], grid_transform[0] + grid_transform[1] * input_grid.RasterXSize,
+                     grid_transform[3] + grid_transform[5] * input_grid.RasterYSize]
     
     os.makedirs(os.path.dirname(output), exist_ok=True)
-    gdal.Warp(output, input, outputBounds=input_bounds, outputBoundsSRS = input_projection,
+    gdal.Warp(output, input, outputBounds=output_bounds, #outputBoundsSRS = input_projection,
               srcSRS=input_projection, dstSRS=grid_projection,
               xRes=grid_transform[1], yRes=grid_transform[5], resampleAlg=resampling,
               options=['NUM_THREADS=ALL_CPUS'],
