@@ -105,14 +105,18 @@ def apply_raster_mask(input: str,
     Apply a raster map to the input. The raster map is a DataArray with the same shape as the input, where each value corresponds to a category.
     The input is masked (set to nodata_value) where the raster map has the filter_values.
     """
+
     if destination is None:
         destination = input.replace('.tif', '_masked.tif')
     
     data = read_geotiff_asXarray(input)
-    mask = read_geotiff_asXarray(mask)
+    mask_data = read_geotiff_asXarray(mask)
+
+    # make sure coordinates of the mask and the data are in the same order
+    mask_data = mask_data.rio.reproject_match(data)
 
     for value in filter_values:
-        data = data.where(mask != value, other=nodata_value)
+        data = data.where(mask_data != value, other=nodata_value)
 
     data = data.rio.write_nodata(nodata_value)
     write_geotiff_fromXarray(data, destination)
