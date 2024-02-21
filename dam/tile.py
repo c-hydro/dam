@@ -31,6 +31,7 @@ def combine_tiles(inputs: list[str],
 
 def split_in_tiles(input: str,
                    tile_size: int|tuple[int, int] = 1024,
+                   mask: Optional[str] = None,
                    output: Optional[str] = None,
                    rm_input: bool = False) -> list[str]:
     """
@@ -55,16 +56,27 @@ def split_in_tiles(input: str,
     ny = len(ysizes)
 
     outfiles = []
+    id_tile = 0
     for it in range(nx):
         for jt in range(ny):
             xoff = sum(xsizes[:it])
             yoff = sum(ysizes[:jt])
             tile_xsize = xsizes[it]
             tile_ysize = ysizes[jt]
-            tile_file = output.format(tile=it+jt*nx)
+            
+            # if we have a mask, we need to check if the tile has any valid data
+            if mask is not None:
+                mask_ds = gdal.Translate('', mask, format='MEM', srcWin=[xoff, yoff, tile_xsize, tile_ysize])
+                mask_array = mask_ds.GetRasterBand(1).ReadAsArray()
+                if not np.any(mask_array):
+                    continue
+                mask_ds = None
+            
+            tile_file = output.format(tile=id_tile)
             tile_ds = gdal.Translate('', input, format='MEM', srcWin=[xoff, yoff, tile_xsize, tile_ysize])
             write_geotiff_fromGDAL(tile_ds, tile_file)
             outfiles.append(tile_file)
+            id_tile += 1
 
     if rm_input:
         remove_file(input)
