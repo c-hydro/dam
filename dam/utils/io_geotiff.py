@@ -19,16 +19,14 @@ def write_geotiff_fromGDAL(ds, filename):
     os.makedirs(os.path.dirname(filename), exist_ok=True)
     gdal.Translate(filename, ds, creationOptions=['COMPRESS=LZW'])
 
-def read_geotiff_singleband(filename):
+def read_geotiff_as_array(filename):
     filehandle = gdal.Open(filename)
     band1 = filehandle.GetRasterBand(1)
-    geotransform = filehandle.GetGeoTransform()
-    geoproj = filehandle.GetProjection()
     band1data = band1.ReadAsArray()
     filehandle = None
-    return geotransform,geoproj,band1data
+    return band1data
 
-def write_geotiff_singleband(filename,geotransform,geoprojection,data):
+def write_geotiff_singleband(filename,geotransform,geoprojection,data,metadata = None):
     (x,y) = data.shape
     format = "GTiff"
     driver = gdal.GetDriverByName(format)
@@ -39,4 +37,6 @@ def write_geotiff_singleband(filename,geotransform,geoprojection,data):
     dst_ds.SetGeoTransform(geotransform)
     dst_ds.SetProjection(geoprojection)
     dst_ds.GetRasterBand(1).WriteArray(data)
+    if metadata:
+        dst_ds.SetMetadata(metadata)
     dst_ds = None

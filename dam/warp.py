@@ -5,7 +5,7 @@ from typing import Optional
 import numpy as np
 import os
 
-from .utils.io_geotiff import read_geotiff_asGDAL, write_geotiff_singleband, read_geotiff_singleband
+from .utils.io_geotiff import read_geotiff_asGDAL, write_geotiff_singleband, read_geotiff_as_array
 from .utils.rm import remove_file
 
 def match_grid(input: str,
@@ -76,11 +76,18 @@ def match_grid(input: str,
             avg_nan = match_grid(maskfile, grid, 'Average')
 
             # set the output to nodata where the value of mask is > nodata_threshold
-            _,_,mask = read_geotiff_singleband(avg_nan)
+            mask = read_geotiff_as_array(avg_nan)
             mask = mask > nodata_threshold
-            geotransform,geoproj,output_array = read_geotiff_singleband(output)
+            
+            output_ds = read_geotiff_asGDAL(output)
+            output_array = output_ds.GetRasterBand(1).ReadAsArray()
+
+            geotransform = output_ds.GetGeoTransform()
+            geoprojection = output_ds.GetProjection()
+            metadata = output_ds.GetMetadata()
+
             output_array[mask] = nodata_value
-            write_geotiff_singleband(output, geotransform, geoproj, output_array)
+            write_geotiff_singleband(output, geotransform, geoprojection, output_array, metadata = metadata)
     
     input_ds = None
     if rm_input:
