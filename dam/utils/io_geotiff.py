@@ -11,6 +11,11 @@ def read_geotiff_asGDAL(filename):
 def read_geotiff_asXarray(filename):
     return rxr.open_rasterio(filename)
 
+def read_multiple_geotiffs_asXarray(tiff_file_paths):
+    data_arrays = [rxr.open_rasterio(file_path) for file_path in tiff_file_paths]
+    stacked_data = xr.concat(data_arrays, dim='band')
+    return stacked_data
+
 def write_geotiff_fromXarray(data, filename):
     os.makedirs(os.path.dirname(filename), exist_ok=True)
     data.rio.to_raster(filename, compress='LZW')

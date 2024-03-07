@@ -29,10 +29,13 @@ def combine_tiles(inputs: list[str],
 
     return output
 
+
 def split_in_tiles(input: str,
-                   tile_size: int|tuple[int, int] = 1024,
+                   tile_size: int | tuple[int, int] = 1024,
                    mask: Optional[str] = None,
+                   mask_nodata: Optional[int] = None,
                    output: Optional[str] = None,
+                   only_numtiles: bool = False,
                    rm_input: bool = False) -> list[str]:
     """
     Split a raster into tiles.
@@ -43,17 +46,20 @@ def split_in_tiles(input: str,
 
     if output is None:
         output = input.replace('.tif', '_tile{tile}.tif')
-    
-    #get the input raster
+
+    # get the input raster
     ds = gdal.Open(input)
     xsize = ds.RasterXSize
     ysize = ds.RasterYSize
 
     xsizes = optimal_sizes(xsize, tile_xsize)
     ysizes = optimal_sizes(ysize, tile_ysize)
-    
+
     nx = len(xsizes)
     ny = len(ysizes)
+
+    if only_numtiles:
+        return nx * ny
 
     outfiles = []
     id_tile = 0
@@ -68,9 +74,21 @@ def split_in_tiles(input: str,
             if mask is not None:
                 mask_ds = gdal.Translate('', mask, format='MEM', srcWin=[xoff, yoff, tile_xsize, tile_ysize])
                 mask_array = mask_ds.GetRasterBand(1).ReadAsArray()
+                mask_ds = None
+                if mask_nodata is not None:
+                    mask_array = mask_array != mask_nodata
+                else:
+                    mask_array = ~np.isnan(mask_array)
                 if not np.any(mask_array):
                     continue
-                mask_ds = None
+                else:
+                    # get the minimal extent of the non-nan values
+                    x_min, x_max = np.where(mask_array.any(axis=0))[0][[0, -1]]
+                    y_min, y_max = np.where(mask_array.any(axis=1))[0][[0, -1]]
+                xoff += x_min
+                yoff += y_min
+                tile_xsize = x_max - x_min + 1
+                tile_ysize = y_max - y_min + 1
             
             tile_file = output.format(tile=id_tile)
             tile_ds = gdal.Translate('', input, format='MEM', srcWin=[xoff, yoff, tile_xsize, tile_ysize])
