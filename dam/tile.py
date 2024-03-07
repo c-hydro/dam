@@ -29,10 +29,12 @@ def combine_tiles(inputs: list[str],
 
     return output
 
+
 def split_in_tiles(input: str,
-                   tile_size: int|tuple[int, int] = 1024,
+                   tile_size: int | tuple[int, int] = 1024,
                    mask: Optional[str] = None,
                    output: Optional[str] = None,
+                   only_numtiles: bool = False,
                    rm_input: bool = False) -> list[str]:
     """
     Split a raster into tiles.
@@ -43,17 +45,20 @@ def split_in_tiles(input: str,
 
     if output is None:
         output = input.replace('.tif', '_tile{tile}.tif')
-    
-    #get the input raster
+
+    # get the input raster
     ds = gdal.Open(input)
     xsize = ds.RasterXSize
     ysize = ds.RasterYSize
 
     xsizes = optimal_sizes(xsize, tile_xsize)
     ysizes = optimal_sizes(ysize, tile_ysize)
-    
+
     nx = len(xsizes)
     ny = len(ysizes)
+
+    if only_numtiles:
+        return nx * ny
 
     outfiles = []
     id_tile = 0
