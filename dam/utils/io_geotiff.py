@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import rioxarray as rxr
+import xarray as xr
 
 from osgeo import gdal, gdalconst
 
