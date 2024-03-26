@@ -20,6 +20,7 @@ def apply_scale_factor(input: str,
 
     data = read_geotiff_asXarray(input)
     current_nodata = data.rio.nodata
+    metadata = data.attrs
 
     # apply the scale factor
     data = data * scale_factor
@@ -30,6 +31,7 @@ def apply_scale_factor(input: str,
         data = data.where(data != rescaled_nodata, other = nodata_value)
 
     data = data.rio.write_nodata(nodata_value)
+    data.attrs.update(metadata)
     write_geotiff_fromXarray(data, destination)
 
     if rm_input:
