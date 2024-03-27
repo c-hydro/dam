@@ -70,7 +70,8 @@ def match_grid(input: str,
             mask = input_ds.GetRasterBand(1).ReadAsArray() == nodata_value
         with tempfile.TemporaryDirectory() as tempdir:
             maskfile = os.path.join(tempdir, 'nan_mask.tif')
-            write_geotiff_singleband(maskfile, input_transform, input_projection,mask)
+
+            write_geotiff_singleband(maskfile, input_transform, input_projection, mask, nodata_value = 0)
             mask = None
 
             avg_nan = match_grid(maskfile, grid, 'Average')
@@ -87,7 +88,7 @@ def match_grid(input: str,
             metadata = output_ds.GetMetadata()
 
             output_array[mask] = nodata_value
-            write_geotiff_singleband(output, geotransform, geoprojection, output_array, metadata = metadata)
+            write_geotiff_singleband(output, geotransform, geoprojection, output_array, metadata = metadata, nodata_value = nodata_value)
     
     input_ds = None
     if rm_input:

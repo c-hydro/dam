@@ -32,7 +32,7 @@ def read_geotiff_as_array(filename):
     filehandle = None
     return band1data
 
-def write_geotiff_singleband(filename,geotransform,geoprojection,data,metadata = None):
+def write_geotiff_singleband(filename,geotransform,geoprojection,data,metadata = None,nodata_value = np.nan):
     (x,y) = data.shape
     format = "GTiff"
     driver = gdal.GetDriverByName(format)
@@ -43,6 +43,7 @@ def write_geotiff_singleband(filename,geotransform,geoprojection,data,metadata =
     dst_ds.SetGeoTransform(geotransform)
     dst_ds.SetProjection(geoprojection)
     dst_ds.GetRasterBand(1).WriteArray(data)
+    dst_ds.GetRasterBand(1).SetNoDataValue(nodata_value)
     if metadata:
         dst_ds.SetMetadata(metadata)
     dst_ds = None
