@@ -1,10 +1,11 @@
 from osgeo import gdal
 import re
 import numpy as np
+import tempfile
 
 from typing import Optional
 
-from .utils.io_geotiff import read_geotiff_asGDAL, write_geotiff_fromGDAL
+from .utils.io_geotiff import write_geotiff_fromGDAL, read_geotiff_as_array
 from .utils.rm import remove_file
 
 def combine_tiles(inputs: list[str],
@@ -72,9 +73,11 @@ def split_in_tiles(input: str,
             
             # if we have a mask, we need to check if the tile has any valid data
             if mask is not None:
-                mask_ds = gdal.Translate('', mask, format='MEM', srcWin=[xoff, yoff, tile_xsize, tile_ysize])
-                mask_array = mask_ds.GetRasterBand(1).ReadAsArray()
-                mask_ds = None
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    mask_ds = gdal.Translate('', mask, format='MEM', srcWin=[xoff, yoff, tile_xsize, tile_ysize])
+                    write_geotiff_fromGDAL(mask_ds, f'{tmpdir}/mask.tif')
+                    mask_array = read_geotiff_as_array(f'{tmpdir}/mask.tif')
+                    mask_ds = None
                 if mask_nodata is not None:
                     mask_array = mask_array != mask_nodata
                 else:
