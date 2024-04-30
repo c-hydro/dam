@@ -73,6 +73,7 @@ def match_grid(input: str,
         with tempfile.TemporaryDirectory() as tempdir:
             maskfile = os.path.join(tempdir, 'nan_mask.tif')
 
+            mask = mask.astype(np.uint8)
             write_geotiff_singleband(maskfile, data = mask, template = input, nodata_value = 0)
             mask = None
 
@@ -85,7 +86,7 @@ def match_grid(input: str,
             output_array = read_geotiff_as_array(output)
             metadata = read_geotiff_asXarray(output).attrs
 
-            output_array[mask] = nodata_value
+            output_array[mask == 0] = nodata_value
             write_geotiff_singleband(output, data = output_array, template = output, metadata=metadata, nodata_value = nodata_value)
     
     if rm_input:
