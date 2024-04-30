@@ -41,6 +41,8 @@ def match_grid(input: str,
     if nodata_value is not None:
         input_ds.GetRasterBand(1).SetNoDataValue(nodata_value)
 
+    input_ds = None
+
     # Open the reference raster file
     input_grid = read_geotiff_asGDAL(grid)
     grid_transform = input_grid.GetGeoTransform()
@@ -65,9 +67,9 @@ def match_grid(input: str,
     if nodata_threshold is not None:
         # make a mask of the nodata values in the original input
         if np.isnan(nodata_value):
-            mask = np.isnan(input_ds.GetRasterBand(1).ReadAsArray())
+            mask = np.isnan(read_geotiff_as_array(input))
         else:
-            mask = input_ds.GetRasterBand(1).ReadAsArray() == nodata_value
+            mask = read_geotiff_as_array(input) == nodata_value
         with tempfile.TemporaryDirectory() as tempdir:
             maskfile = os.path.join(tempdir, 'nan_mask.tif')
 
@@ -79,9 +81,9 @@ def match_grid(input: str,
             # set the output to nodata where the value of mask is > nodata_threshold
             mask = read_geotiff_as_array(avg_nan)
             mask = mask > nodata_threshold
-            
+
             output_ds = read_geotiff_asGDAL(output)
-            output_array = output_ds.GetRasterBand(1).ReadAsArray()
+            output_array = read_geotiff_as_array(output)
 
             geotransform = output_ds.GetGeoTransform()
             geoprojection = output_ds.GetProjection()
@@ -90,7 +92,6 @@ def match_grid(input: str,
             output_array[mask] = nodata_value
             write_geotiff_singleband(output, geotransform, geoprojection, output_array, metadata = metadata, nodata_value = nodata_value)
     
-    input_ds = None
     if rm_input:
         remove_file(input)
     
