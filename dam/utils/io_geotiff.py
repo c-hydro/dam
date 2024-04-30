@@ -10,7 +10,19 @@ def read_geotiff_asGDAL(filename):
     return ds
 
 def read_geotiff_asXarray(filename):
-    return rxr.open_rasterio(filename)
+    data = rxr.open_rasterio(filename)
+
+    # ensure that the data has descending latitudes
+    y_dim = data.rio.y_dim
+    if y_dim is None:
+        for dim in data.dims:
+            if 'lat' in dim.lower() | 'y' in dim.lower():
+                y_dim = dim
+                break
+    if data[y_dim][0] < data[y_dim][-1]:
+        data = data.sortby(y_dim, ascending = False)
+
+    return data
 
 def read_multiple_geotiffs_asXarray(tiff_file_paths):
     data_arrays = [rxr.open_rasterio(file_path) for file_path in tiff_file_paths]
