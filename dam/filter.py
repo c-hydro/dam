@@ -57,7 +57,8 @@ def apply_binary_mask(input: str,
         destination = input.replace('.tif', '_filtered.tif')
     
     data = read_geotiff_asXarray(input)
-    mask = read_geotiff_asXarray(mask)
+    mask_file = mask
+    mask = read_geotiff_asXarray(mask_file)
 
     # get the flag info and the values to keep from the keep dictionary
     flag_info = {}
@@ -90,7 +91,7 @@ def apply_binary_mask(input: str,
         remove_file(input)
 
     if rm_mask:
-        remove_file(mask)
+        remove_file(mask_file)
 
     return destination
     
