@@ -42,18 +42,13 @@ def read_geotiff_as_array(filename):
     values = data.values.squeeze()
     return values
 
-def write_geotiff_singleband(filename,geotransform,geoprojection,data,metadata = None,nodata_value = np.nan):
-    (x,y) = data.shape
-    format = "GTiff"
-    driver = gdal.GetDriverByName(format)
-    dst_datatype = gdal.GDT_Float32
-
+def write_geotiff_singleband(filename, data, template, metadata = None, nodata_value = np.nan):
     os.makedirs(os.path.dirname(filename), exist_ok=True)
-    dst_ds = driver.Create(filename,y,x,1,dst_datatype)
-    dst_ds.SetGeoTransform(geotransform)
-    dst_ds.SetProjection(geoprojection)
-    dst_ds.GetRasterBand(1).WriteArray(data)
-    dst_ds.GetRasterBand(1).SetNoDataValue(nodata_value)
-    if metadata:
-        dst_ds.SetMetadata(metadata)
-    dst_ds = None
+    template = read_geotiff_asXarray(template)
+    template = template.squeeze()
+
+    if metadata is not None:
+        template.attrs = metadata
+    
+    data = np.squeeze(data)
+    template.copy(data = data).rio.to_raster(filename, compress='LZW', nodata=nodata_value)

@@ -5,7 +5,7 @@ from typing import Optional
 import numpy as np
 import os
 
-from .utils.io_geotiff import read_geotiff_asGDAL, write_geotiff_singleband, read_geotiff_as_array
+from .utils.io_geotiff import read_geotiff_asGDAL, write_geotiff_singleband, read_geotiff_as_array, read_geotiff_asXarray
 from .utils.rm import remove_file
 
 def match_grid(input: str,
@@ -73,7 +73,7 @@ def match_grid(input: str,
         with tempfile.TemporaryDirectory() as tempdir:
             maskfile = os.path.join(tempdir, 'nan_mask.tif')
 
-            write_geotiff_singleband(maskfile, input_transform, input_projection, mask, nodata_value = 0)
+            write_geotiff_singleband(maskfile, data = mask, template = input, nodata_value = 0)
             mask = None
 
             avg_nan = match_grid(maskfile, grid, 'Average')
@@ -82,15 +82,11 @@ def match_grid(input: str,
             mask = read_geotiff_as_array(avg_nan)
             mask = mask > nodata_threshold
 
-            output_ds = read_geotiff_asGDAL(output)
             output_array = read_geotiff_as_array(output)
-
-            geotransform = output_ds.GetGeoTransform()
-            geoprojection = output_ds.GetProjection()
-            metadata = output_ds.GetMetadata()
+            metadata = read_geotiff_asXarray(output).attrs
 
             output_array[mask] = nodata_value
-            write_geotiff_singleband(output, geotransform, geoprojection, output_array, metadata = metadata, nodata_value = nodata_value)
+            write_geotiff_singleband(output, data = output_array, template = output, metadata=metadata, nodata_value = nodata_value)
     
     if rm_input:
         remove_file(input)
