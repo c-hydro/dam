@@ -38,11 +38,9 @@ def write_geotiff_fromGDAL(ds, filename):
     gdal.Translate(filename, ds, creationOptions=['COMPRESS=LZW'])
 
 def read_geotiff_as_array(filename):
-    filehandle = gdal.Open(filename)
-    band1 = filehandle.GetRasterBand(1)
-    band1data = band1.ReadAsArray()
-    filehandle = None
-    return band1data
+    data = read_geotiff_asXarray(filename)
+    values = data.values.squeeze()
+    return values
 
 def write_geotiff_singleband(filename,geotransform,geoprojection,data,metadata = None,nodata_value = np.nan):
     (x,y) = data.shape
