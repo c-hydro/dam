@@ -42,7 +42,7 @@ def read_geotiff_as_array(filename):
     values = data.values.squeeze()
     return values
 
-def write_geotiff_singleband(filename, data, template, metadata = None, nodata_value = np.nan):
+def write_geotiff_singleband(filename, data, template, metadata = None, nodata_value = None):
     os.makedirs(os.path.dirname(filename), exist_ok=True)
     template = read_geotiff_asXarray(template)
     template = template.squeeze()
@@ -51,4 +51,6 @@ def write_geotiff_singleband(filename, data, template, metadata = None, nodata_v
         template.attrs = metadata
     
     data = np.squeeze(data)
-    template.copy(data = data).rio.to_raster(filename, compress='LZW', nodata=nodata_value)
+    data_array = template.copy(data = data)
+    data_array = data_array.rio.write_nodata(nodata_value)
+    data_array.rio.to_raster(filename, compress='LZW')

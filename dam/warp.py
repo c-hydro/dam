@@ -57,11 +57,18 @@ def match_grid(input: str,
     output_bounds = [grid_transform[0], grid_transform[3], grid_transform[0] + grid_transform[1] * input_grid.RasterXSize,
                      grid_transform[3] + grid_transform[5] * input_grid.RasterYSize]
     
+    # set the type of the output to the type of the input if resampling is nearest neighbour, otherwise to float32
+    if resampling == gdalconst.GRA_NearestNeighbour:
+        output_type = input_ds.GetRasterBand(1).DataType
+    else:
+        output_type = gdalconst.GDT_Float32
+
     os.makedirs(os.path.dirname(output), exist_ok=True)
     gdal.Warp(output, input, outputBounds=output_bounds, #outputBoundsSRS = input_projection,
               srcSRS=input_projection, dstSRS=grid_projection,
               xRes=grid_transform[1], yRes=grid_transform[5], resampleAlg=resampling,
               options=['NUM_THREADS=ALL_CPUS'],
+              outputType=output_type,
               format='GTiff', creationOptions=['COMPRESS=LZW'], multithread=True)
     
     if nodata_threshold is not None:
@@ -70,11 +77,12 @@ def match_grid(input: str,
             mask = np.isnan(read_geotiff_as_array(input))
         else:
             mask = read_geotiff_as_array(input) == nodata_value
+
         with tempfile.TemporaryDirectory() as tempdir:
             maskfile = os.path.join(tempdir, 'nan_mask.tif')
 
             mask = mask.astype(np.uint8)
-            write_geotiff_singleband(maskfile, data = mask, template = input, nodata_value = 0)
+            write_geotiff_singleband(maskfile, data = mask, template = input)
             mask = None
 
             avg_nan = match_grid(maskfile, grid, 'Average')
@@ -86,7 +94,7 @@ def match_grid(input: str,
             output_array = read_geotiff_as_array(output)
             metadata = read_geotiff_asXarray(output).attrs
 
-            output_array[mask == 0] = nodata_value
+            output_array[mask == 1] = nodata_value
             write_geotiff_singleband(output, data = output_array, template = output, metadata=metadata, nodata_value = nodata_value)
     
     if rm_input:
