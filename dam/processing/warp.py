@@ -5,8 +5,8 @@ from typing import Optional
 import numpy as np
 import os
 
-from .utils.io_geotiff import read_geotiff_asGDAL, write_geotiff_singleband, read_geotiff_as_array, read_geotiff_asXarray
-from .utils.rm import remove_file
+from ..utils.io_geotiff import read_geotiff_asGDAL, write_geotiff_singleband, read_geotiff_as_array, read_geotiff_asXarray
+from ..utils.rm import remove_file
 
 def match_grid(input: str,
                grid: str,

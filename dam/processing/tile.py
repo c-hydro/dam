@@ -5,8 +5,8 @@ import tempfile
 
 from typing import Optional
 
-from .utils.io_geotiff import write_geotiff_fromGDAL, read_geotiff_as_array
-from .utils.rm import remove_file
+from ..utils.io_geotiff import write_geotiff_fromGDAL, read_geotiff_as_array
+from ..utils.rm import remove_file
 
 def combine_tiles(inputs: list[str],
                   output: Optional[str] = None,

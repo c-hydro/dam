@@ -7,8 +7,8 @@ import os
 
 import unpackqa
 
-from .utils.io_geotiff import read_geotiff_asXarray, write_geotiff_fromXarray
-from .utils.rm import remove_file
+from ..utils.io_geotiff import read_geotiff_asXarray, write_geotiff_fromXarray
+from ..utils.rm import remove_file
 
 ### functions useful for filtering data
 # all these functions should be applied to a single band GeoTIFF file (that is the first imput of the function)

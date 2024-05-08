@@ -3,8 +3,8 @@ import rioxarray
 
 from typing import Optional
 
-from .utils.io_geotiff import read_geotiff_asXarray, write_geotiff_fromXarray
-from .utils.rm import remove_file
+from ..utils.io_geotiff import read_geotiff_asXarray, write_geotiff_fromXarray
+from ..utils.rm import remove_file
 
 def apply_scale_factor(input: str,
                        scale_factor: float,
