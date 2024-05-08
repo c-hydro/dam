@@ -9,14 +9,19 @@ from .utils.rm import remove_file
 def apply_scale_factor(input: str,
                        scale_factor: float,
                        nodata_value: float = np.nan,
-                       destination: Optional[str] = None,
-                       rm_input: bool = False) -> str:
+                       output: Optional[str] = None,
+                       rm_input: bool = False,
+                       destination: Optional[str] = None # destination is kept for backward compatibility
+                       ) -> str:
     """
     Applies a scale factor to a raster.
     """
 
-    if destination is None:
-        destination = input.replace('.tif', '_scaled.tif')
+    if output is None:
+        if destination is not None:
+            output = destination
+        else:
+            output = input.replace('.tif', '_scaled.tif')
 
     data = read_geotiff_asXarray(input)
     current_nodata = data.rio.nodata
@@ -32,9 +37,9 @@ def apply_scale_factor(input: str,
 
     data = data.rio.write_nodata(nodata_value)
     data.attrs.update(metadata)
-    write_geotiff_fromXarray(data, destination)
+    write_geotiff_fromXarray(data, output)
 
     if rm_input:
         remove_file(input)
     
-    return destination
+    return output
