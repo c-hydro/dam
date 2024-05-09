@@ -5,7 +5,7 @@ import tempfile
 
 from typing import Optional
 
-from ..utils.io_geotiff import write_geotiff_fromGDAL, read_geotiff_as_array
+from ..utils.io_geotiff import write_geotiff, read_geotiff
 from ..utils.rm import remove_file
 
 def combine_tiles(inputs: list[str],
@@ -22,7 +22,7 @@ def combine_tiles(inputs: list[str],
         output = re.sub('[-_]?tile[-_]?\d{1,3}', '', s)
     
     out_ds = gdal.Warp('', inputs, format = 'MEM', options=['NUM_THREADS=ALL_CPUS'])
-    write_geotiff_fromGDAL(out_ds, output)
+    write_geotiff(out_ds, output)
 
     if rm_input:
         for input in inputs:
@@ -75,8 +75,8 @@ def split_in_tiles(input: str,
             if mask is not None:
                 with tempfile.TemporaryDirectory() as tmpdir:
                     mask_ds = gdal.Translate('', mask, format='MEM', srcWin=[xoff, yoff, tile_xsize, tile_ysize])
-                    write_geotiff_fromGDAL(mask_ds, f'{tmpdir}/mask.tif')
-                    mask_array = read_geotiff_as_array(f'{tmpdir}/mask.tif')
+                    write_geotiff(mask_ds, f'{tmpdir}/mask.tif')
+                    mask_array = read_geotiff(f'{tmpdir}/mask.tif', out='array')
                     mask_ds = None
                 if mask_nodata is not None:
                     mask_array = mask_array != mask_nodata
@@ -95,7 +95,7 @@ def split_in_tiles(input: str,
             
             tile_file = output.format(tile=id_tile)
             tile_ds = gdal.Translate('', input, format='MEM', srcWin=[xoff, yoff, tile_xsize, tile_ysize])
-            write_geotiff_fromGDAL(tile_ds, tile_file)
+            write_geotiff(tile_ds, tile_file)
             outfiles.append(tile_file)
             id_tile += 1
 

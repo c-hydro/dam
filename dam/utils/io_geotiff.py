@@ -5,52 +5,103 @@ import xarray as xr
 
 from osgeo import gdal, gdalconst
 
-def read_geotiff_asGDAL(filename):
-    ds = gdal.Open(filename, gdalconst.GA_ReadOnly)
-    return ds
+def read_geotiff(filename: str | list[str], out = 'xarray', stack = True):
 
-def read_geotiff_asXarray(filename):
-    data = rxr.open_rasterio(filename)
+    if isinstance(filename, list):
+        data_list = [read_geotiff(file, out) for file in filename]
+        if stack:
+            if out == 'xarray':
+                data = xr.concat(data_list, dim = 'band')
+            elif out == 'array':
+                data = np.stack(data_list)
+            elif out == 'gdal':
+                data = data_list
+                raise Warning('Cannot stack GDAL datasets')
+        else:
+            data = data_list
 
-    # ensure that the data has descending latitudes
-    y_dim = data.rio.y_dim
-    if y_dim is None:
-        for dim in data.dims:
-            if 'lat' in dim.lower() | 'y' in dim.lower():
-                y_dim = dim
-                break
-    if data[y_dim][0] < data[y_dim][-1]:
-        data = data.sortby(y_dim, ascending = False)
+        return data
 
+    if out == 'xarray':
+        data = rxr.open_rasterio(filename)
+
+        # ensure that the data has descending latitudes
+        y_dim = data.rio.y_dim
+        if y_dim is None:
+            for dim in data.dims:
+                if 'lat' in dim.lower() | 'y' in dim.lower():
+                    y_dim = dim
+                    break
+        if data[y_dim][0] < data[y_dim][-1]:
+            data = data.sortby(y_dim, ascending = False)
+
+    elif out == 'gdal':
+        data = gdal.Open(filename, gdalconst.GA_ReadOnly)
+
+    elif out == 'array':
+        da = read_geotiff(filename, 'xarray')
+        data = da.values.squeeze()
+    
+    else:
+        raise ValueError(f'out must be one of ["xarray", "gdal", "array"], got {out}')
+    
     return data
 
-def read_multiple_geotiffs_asXarray(tiff_file_paths):
-    data_arrays = [rxr.open_rasterio(file_path) for file_path in tiff_file_paths]
-    stacked_data = xr.concat(data_arrays, dim='band')
-    return stacked_data
+def read_geotiff_asGDAL(filename):
+    read_geotiff(filename, out = 'gdal')
 
-def write_geotiff_fromXarray(data, filename):
-    os.makedirs(os.path.dirname(filename), exist_ok=True)
-    data.rio.to_raster(filename, compress='LZW')
-
-def write_geotiff_fromGDAL(ds, filename):
-    os.makedirs(os.path.dirname(filename), exist_ok=True)
-    gdal.Translate(filename, ds, creationOptions=['COMPRESS=LZW'])
+def read_geotiff_asXarray(filename):
+    read_geotiff(filename, out = 'xarray')
 
 def read_geotiff_as_array(filename):
-    data = read_geotiff_asXarray(filename)
-    values = data.values.squeeze()
-    return values
+    read_geotiff(filename, out = 'array')
+
+def read_multiple_geotiffs_asXarray(tiff_file_paths):
+    read_geotiff(tiff_file_paths, out = 'xarray', stack = True)
+
+def write_geotiff(data: gdal.Dataset | xr.DataArray | np.ndarray, filename, **kwargs):
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
+
+    if 'metadata' in kwargs:
+        metadata = kwargs['metadata']
+    else:
+        metadata = None
+    
+    if 'nodata_value' in kwargs:
+        nodata_value = kwargs['nodata_value']
+    else:
+        nodata_value = None
+
+    if isinstance(data, gdal.Dataset):
+        if metadata is not None:
+            data.SetMetadata(metadata)
+        if nodata_value is not None:
+            data.GetRasterBand(1).SetNoDataValue(nodata_value)
+        gdal.Translate(filename, data, creationOptions=['COMPRESS=LZW'])
+    
+    elif isinstance(data, xr.DataArray):
+        if metadata is not None:
+            data.attrs = metadata
+        if nodata_value is not None:
+            data = data.rio.write_nodata(nodata_value)
+        data.rio.to_raster(filename, compress='LZW')
+
+    elif isinstance(data, np.ndarray):
+        if 'template' not in kwargs:
+            raise ValueError('template must be provided when writing a numpy array to a geotiff')
+        template = kwargs['template']
+        template = read_geotiff(template)
+        template = template.squeeze()
+        data = np.squeeze(data)
+        data_array = template.copy(data = data)
+        write_geotiff(data_array, filename, **kwargs)
+
+
+def write_geotiff_fromXarray(data, filename):
+    write_geotiff(data, filename)
+
+def write_geotiff_fromGDAL(ds, filename):
+    write_geotiff(ds, filename)
 
 def write_geotiff_singleband(filename, data, template, metadata = None, nodata_value = None):
-    os.makedirs(os.path.dirname(filename), exist_ok=True)
-    template = read_geotiff_asXarray(template)
-    template = template.squeeze()
-
-    if metadata is not None:
-        template.attrs = metadata
-    
-    data = np.squeeze(data)
-    data_array = template.copy(data = data)
-    data_array = data_array.rio.write_nodata(nodata_value)
-    data_array.rio.to_raster(filename, compress='LZW')
+    write_geotiff(data, filename, template = template, metadata = metadata, nodata_value = nodata_value)

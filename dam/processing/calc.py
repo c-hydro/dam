@@ -3,7 +3,7 @@ import rioxarray
 
 from typing import Optional
 
-from ..utils.io_geotiff import read_geotiff_asXarray, write_geotiff_fromXarray
+from ..utils.io_geotiff import read_geotiff, write_geotiff
 from ..utils.rm import remove_file
 
 def apply_scale_factor(input: str,
@@ -23,7 +23,7 @@ def apply_scale_factor(input: str,
         else:
             output = input.replace('.tif', '_scaled.tif')
 
-    data = read_geotiff_asXarray(input)
+    data = read_geotiff(input, out = 'xarray')
     current_nodata = data.rio.nodata
     metadata = data.attrs
 
@@ -37,7 +37,7 @@ def apply_scale_factor(input: str,
 
     data = data.rio.write_nodata(nodata_value)
     data.attrs.update(metadata)
-    write_geotiff_fromXarray(data, output)
+    write_geotiff(data, output)
 
     if rm_input:
         remove_file(input)

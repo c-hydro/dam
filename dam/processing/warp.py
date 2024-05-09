@@ -5,7 +5,7 @@ from typing import Optional
 import numpy as np
 import os
 
-from ..utils.io_geotiff import read_geotiff_asGDAL, write_geotiff_singleband, read_geotiff_as_array, read_geotiff_asXarray
+from ..utils.io_geotiff import read_geotiff, write_geotiff
 from ..utils.rm import remove_file
 
 def match_grid(input: str,
@@ -34,7 +34,7 @@ def match_grid(input: str,
         output = input.replace('.tif', '_regridded.tif')
 
     # Open the input and reference raster files
-    input_ds = read_geotiff_asGDAL(input)
+    input_ds = read_geotiff(input, out='gdal')
     input_transform = input_ds.GetGeoTransform()
     input_projection = input_ds.GetProjection()
 
@@ -44,7 +44,7 @@ def match_grid(input: str,
     input_ds = None
 
     # Open the reference raster file
-    input_grid = read_geotiff_asGDAL(grid)
+    input_grid = read_geotiff(grid, out='gdal')
     grid_transform = input_grid.GetGeoTransform()
     grid_projection = input_grid.GetProjection()
 
@@ -74,28 +74,28 @@ def match_grid(input: str,
     if nodata_threshold is not None:
         # make a mask of the nodata values in the original input
         if np.isnan(nodata_value):
-            mask = np.isnan(read_geotiff_as_array(input))
+            mask = np.isnan(read_geotiff(input, out='array'))
         else:
-            mask = read_geotiff_as_array(input) == nodata_value
+            mask = read_geotiff(input, out = 'array') == nodata_value
 
         with tempfile.TemporaryDirectory() as tempdir:
             maskfile = os.path.join(tempdir, 'nan_mask.tif')
 
             mask = mask.astype(np.uint8)
-            write_geotiff_singleband(maskfile, data = mask, template = input)
+            write_geotiff(mask, filename = maskfile, template = input)
             mask = None
 
             avg_nan = match_grid(maskfile, grid, 'Average')
 
             # set the output to nodata where the value of mask is > nodata_threshold
-            mask = read_geotiff_as_array(avg_nan)
+            mask = read_geotiff(avg_nan, out = 'array')
             mask = mask > nodata_threshold
 
-            output_array = read_geotiff_as_array(output)
-            metadata = read_geotiff_asXarray(output).attrs
+            output_array = read_geotiff(output, out = 'array')
+            metadata = read_geotiff(output, out = 'xarray').attrs
 
             output_array[mask == 1] = nodata_value
-            write_geotiff_singleband(output, data = output_array, template = output, metadata=metadata, nodata_value = nodata_value)
+            write_geotiff(data = output_array, filename = output, template = output, metadata=metadata, nodata_value = nodata_value)
     
     if rm_input:
         remove_file(input)

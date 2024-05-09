@@ -7,7 +7,7 @@ import os
 
 import unpackqa
 
-from ..utils.io_geotiff import read_geotiff_asXarray, write_geotiff_fromXarray
+from ..utils.io_geotiff import read_geotiff, write_geotiff
 from ..utils.rm import remove_file
 
 ### functions useful for filtering data
@@ -30,11 +30,11 @@ def keep_valid_range(input: str,
         else:
             output = input.replace('.tif', '_validrange.tif')
 
-    data = read_geotiff_asXarray(input)
+    data = read_geotiff(input, out='xarray')
     data = data.where((data >= valid_range[0]) & (data <= valid_range[1]), other=nodata_value)
 
     data = data.rio.write_nodata(nodata_value)
-    write_geotiff_fromXarray(data, output)
+    write_geotiff(data, output)
 
     if rm_input:
         remove_file(input)
@@ -66,9 +66,9 @@ def apply_binary_mask(input: str,
         else:
             output = input.replace('.tif', '_filtered.tif')
     
-    data = read_geotiff_asXarray(input)
+    data = read_geotiff(input, out='xarray')
     mask_file = mask
-    mask = read_geotiff_asXarray(mask_file)
+    mask = read_geotiff(mask_file, out = 'xarray')
 
     # get the flag info and the values to keep from the keep dictionary
     flag_info = {}
@@ -92,10 +92,10 @@ def apply_binary_mask(input: str,
         if get_masks:
             mask_ds = data.copy(data=mask)
             mask_dest = input.replace(".tif", f"_mask{flag_n}.tif")
-            write_geotiff_fromXarray(mask_ds, mask_dest)
+            write_geotiff(mask_ds, mask_dest)
 
     data = data.rio.write_nodata(nodata_value)
-    write_geotiff_fromXarray(data, output)
+    write_geotiff(data, output)
 
     if rm_input:
         remove_file(input)
@@ -125,8 +125,8 @@ def apply_raster_mask(input: str,
         else:
             output = input.replace('.tif', '_masked.tif')
     
-    data = read_geotiff_asXarray(input)
-    mask_data = read_geotiff_asXarray(mask)
+    data = read_geotiff(input, out='xarray')
+    mask_data = read_geotiff(mask, out='xarray')
 
     # make sure coordinates of the mask and the data are in the same order
     mask_data = mask_data.rio.reproject_match(data)
@@ -135,7 +135,7 @@ def apply_raster_mask(input: str,
         data = data.where(mask_data != value, other=nodata_value)
 
     data = data.rio.write_nodata(nodata_value)
-    write_geotiff_fromXarray(data, output)
+    write_geotiff(data, output)
 
     if rm_input:
         remove_file(input)
