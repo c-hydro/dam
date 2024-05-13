@@ -132,7 +132,7 @@ def apply_raster_mask(input: str,
     mask_data = mask_data.rio.reproject_match(data)
 
     for value in filter_values:
-        data = data.where(mask_data != value, other=nodata_value)
+        data = data.where(~np.isclose(mask_data, value, equal_nan=True), other=nodata_value)
 
     data = data.rio.write_nodata(nodata_value)
     write_geotiff(data, output)

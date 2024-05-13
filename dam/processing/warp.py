@@ -73,10 +73,8 @@ def match_grid(input: str,
     
     if nodata_threshold is not None:
         # make a mask of the nodata values in the original input
-        if np.isnan(nodata_value):
-            mask = np.isnan(read_geotiff(input, out='array'))
-        else:
-            mask = read_geotiff(input, out = 'array') == nodata_value
+        mask_data = read_geotiff(input, out='array')
+        mask = np.isclose(mask_data, nodata_value, equal_nan=True)
 
         with tempfile.TemporaryDirectory() as tempdir:
             maskfile = os.path.join(tempdir, 'nan_mask.tif')

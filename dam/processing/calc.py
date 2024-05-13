@@ -85,10 +85,7 @@ def summarise_by_shape(input: str,
             out_data = out_image.flatten()
 
             # remove the nodata values
-            if nodata_value is not np.nan:
-                out_data = out_data[out_data != nodata_value]
-            else:
-                out_data = out_data[~np.isnan(out_data)]
+            out_data = out_data[~np.isclose(out_data, nodata_value, equal_nan=True)]
 
             if len(out_data) == 0:
                 stats.append(nodata_value)
