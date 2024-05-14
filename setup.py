@@ -27,7 +27,8 @@ setup(
         'numpy>=1.24.0',
         'xarray>=2023.9.0',
         'rioxarray>=0.7.1',
-        'unpackqa>=0.1.0'
+        'unpackqa>=0.1.0',
+        'geopandas'
     ],
     python_requires='>=3.10',
     test_suite='tests',
