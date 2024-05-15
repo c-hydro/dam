@@ -54,6 +54,7 @@ def summarise_by_shape(input: str,
                        nodata_value: float = np.nan,
                        output: Optional[str] = None,
                        rm_input: bool = False,
+                       rm_shapes: bool = False
                        ) -> str:
     """
     Summarise a raster by a shapefile.
@@ -139,4 +140,71 @@ def summarise_by_shape(input: str,
             gdf[name + '_legend'] = stats_legend
         gdf.to_csv(output)
 
+    if rm_input:
+        remove_file(input)
+    
+    if rm_shapes:
+        remove_file(shapes)
+
     return output
+
+def combine_raster_data(input: list[str],
+                        statistic: str = 'mean',
+                        weights: Optional[list[float]] = None,
+                        nodata_value: float = np.nan,
+                        na_ignore: bool = False,
+                        output: Optional[str] = None,
+                        rm_input: bool = False,
+                        ) -> str:
+    """
+    Combine multiple rasters into a single raster.
+    """
+
+    if output is None:
+        output = input[0].replace('.tif', f'_{statistic}.tif')
+
+    # check that the weitghts are the correct length
+    if weights is None:
+        weights = [1] * len(input)
+    elif len(weights) != len(input):
+        raise ValueError('The number of weights must be the same as the number of rasters.')
+
+    match statistic:
+        case 'sum':
+            weights = weights
+        case 'mean':
+            weights = [w / sum(weights) for w in weights]
+        case _:
+            raise ValueError('The statistic must be either "sum" or "mean".')
+
+    databrick = np.stack([read_geotiff(i, out = 'array') for i in input])
+    if na_ignore:
+        databrick_nan = np.where(np.isclose(databrick, nodata_value, equal_nan=True), 0,      databrick)
+    else:
+        databrick_nan = np.where(np.isclose(databrick, nodata_value, equal_nan=True), np.nan, databrick)
+
+    weighted_data = np.einsum('i,ijk->ijk', weights, databrick_nan)
+    mask = np.isfinite(weighted_data)
+    mask = np.isfinite(weighted_data) # <- this is a mask of all the nans in the weighted data
+    weights = np.array(weights)
+    weights_3d = np.broadcast_to(weights[:, np.newaxis, np.newaxis], weighted_data.shape)
+    selected_weights = np.where(mask, weights_3d, 0)
+    total_weights = np.sum(selected_weights, axis=0)
+
+    weighted_sum = np.nansum(weighted_data, axis = 0)
+
+    if statistic == 'sum':
+        result = weighted_sum
+    elif statistic == 'mean':
+        total_weights = np.where(total_weights < 1e-3, 1e-3, total_weights)
+        weighted_mean = weighted_sum / total_weights
+        weighted_mean = np.where(total_weights == 1e-3, np.nan, weighted_mean)
+        result = weighted_mean
+
+    result = np.where(np.isnan(result), nodata_value, result)
+
+    write_geotiff(result, output, template = input[0], nodata_value = nodata_value)
+
+    if rm_input:
+        for i in input:
+            remove_file(i)
