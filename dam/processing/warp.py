@@ -1,6 +1,9 @@
 from osgeo import gdal, gdalconst
 import tempfile
 
+from rasterio.windows import Window
+import rasterio
+
 from typing import Optional
 import numpy as np
 import os
@@ -73,15 +76,40 @@ def match_grid(input: str,
               format='GTiff', creationOptions=['COMPRESS=LZW'], multithread=True)
     
     if nodata_threshold is not None:
-        # make a mask of the nodata values in the original input
-        mask_data = read_geotiff(input, out='array')
-        mask = np.isclose(mask_data, nodata_value, equal_nan=True)
+
+        # Define chunk size
+        chunk_size = 5000
+
+        # Open the dataset
+        with rasterio.open(input) as src:
+            # Calculate number of chunks in each dimension
+            n_chunks_x = src.width // chunk_size
+            n_chunks_y = src.height // chunk_size
+
+            # Initialize an empty mask
+            mask = np.empty((src.count, src.height, src.width), dtype=bool)
+
+            # Loop over the chunks
+            for i in range(n_chunks_y):
+                for j in range(n_chunks_x):
+                    # Define the window
+                    window = Window(j*chunk_size, i*chunk_size, chunk_size, chunk_size)
+                    # Read the data for the current chunk
+                    data_chunk = src.read(window=window)
+                    # Create the mask for the current chunk
+                    mask_chunk = np.isclose(data_chunk, nodata_value, equal_nan=True)
+                    # Store the mask chunk in the correct position
+                    mask[:, i*chunk_size:(i+1)*chunk_size, j*chunk_size:(j+1)*chunk_size] = mask_chunk
+
+        # # make a mask of the nodata values in the original input
+        # mask_data = read_geotiff(input, out='xarray')
+        # mask = np.isclose(mask_data.values, nodata_value, equal_nan=True)
 
         with tempfile.TemporaryDirectory() as tempdir:
             maskfile = os.path.join(tempdir, 'nan_mask.tif')
 
             mask = mask.astype(np.uint8)
-            write_geotiff(mask, filename = maskfile, template = input)
+            write_geotiff(mask, filename = maskfile, template = input, nodata_value = 254)
             mask = None
 
             avg_nan = match_grid(maskfile, grid, 'Average')
