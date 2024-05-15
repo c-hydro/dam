@@ -208,3 +208,5 @@ def combine_raster_data(input: list[str],
     if rm_input:
         for i in input:
             remove_file(i)
+
+    return output
