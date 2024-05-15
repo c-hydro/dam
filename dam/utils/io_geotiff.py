@@ -92,10 +92,12 @@ def write_geotiff(data: gdal.Dataset | xr.DataArray | np.ndarray, filename, **kw
         template = kwargs['template']
         template = read_geotiff(template)
         template = template.squeeze()
+        # check if the data has the same data type as the template
+        if data.dtype != template.dtype:
+            template.values = np.zeros_like(template.values, dtype = data.dtype)
         data = np.squeeze(data)
         data_array = template.copy(data = data)
         write_geotiff(data_array, filename, **kwargs)
-
 
 def write_geotiff_fromXarray(data, filename):
     write_geotiff(data, filename)
