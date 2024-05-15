@@ -41,6 +41,7 @@ def match_grid(input: str,
     if nodata_value is not None:
         input_ds.GetRasterBand(1).SetNoDataValue(nodata_value)
 
+    in_type = input_ds.GetRasterBand(1).DataType
     input_ds = None
 
     # Open the reference raster file
@@ -59,7 +60,7 @@ def match_grid(input: str,
     
     # set the type of the output to the type of the input if resampling is nearest neighbour, otherwise to float32
     if resampling == gdalconst.GRA_NearestNeighbour:
-        output_type = input_ds.GetRasterBand(1).DataType
+        output_type = in_type
     else:
         output_type = gdalconst.GDT_Float32
 
