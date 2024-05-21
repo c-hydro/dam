@@ -48,16 +48,16 @@ def read_geotiff(filename: str | list[str], out = 'xarray', stack = True):
     return data
 
 def read_geotiff_asGDAL(filename):
-    read_geotiff(filename, out = 'gdal')
+    return read_geotiff(filename, out = 'gdal')
 
 def read_geotiff_asXarray(filename):
-    read_geotiff(filename, out = 'xarray')
+    return read_geotiff(filename, out = 'xarray')
 
 def read_geotiff_as_array(filename):
-    read_geotiff(filename, out = 'array')
+    return read_geotiff(filename, out = 'array')
 
 def read_multiple_geotiffs_asXarray(tiff_file_paths):
-    read_geotiff(tiff_file_paths, out = 'xarray', stack = True)
+    return read_geotiff(tiff_file_paths, out = 'xarray', stack = True)
 
 def write_geotiff(data: gdal.Dataset | xr.DataArray | np.ndarray, filename, **kwargs):
     os.makedirs(os.path.dirname(filename), exist_ok=True)
