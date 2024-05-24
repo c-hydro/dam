@@ -50,6 +50,7 @@ def summarise_by_shape(input: str,
                        shapes: str,
                        statistic: str = 'mean',
                        breaks: Optional[list[float]] = None,
+                       round: Optional[int] = None,
                        name: Optional[str] = None,
                        nodata_value: float = np.nan,
                        output: Optional[str] = None,
@@ -108,6 +109,9 @@ def summarise_by_shape(input: str,
             
             else:
                 raise ValueError('The statistic must be either "mean", "median" or "mode".')
+
+            if round is not None:
+                stat = np.round(stat, round)
 
             # Append the statistic to the list
             stats.append(stat)
