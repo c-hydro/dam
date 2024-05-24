@@ -103,6 +103,12 @@ def summarise_by_shape(input: str,
             elif statistic == 'mean':
                 stat = np.mean(out_data)
 
+            elif statistic == 'median':
+                stat = np.median(out_data)
+            
+            else:
+                raise ValueError('The statistic must be either "mean", "median" or "mode".')
+
             # Append the statistic to the list
             stats.append(stat)
 
