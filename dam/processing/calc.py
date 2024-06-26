@@ -50,6 +50,8 @@ def summarise_by_shape(input: str,
                        shapes: str,
                        statistic: str = 'mean',
                        breaks: Optional[list[float]] = None,
+                       percentages: Optional[bool] = False,
+                       threshold: Optional[int] = None,
                        round: Optional[int] = None,
                        name: Optional[str] = None,
                        nodata_value: float = np.nan,
@@ -71,6 +73,12 @@ def summarise_by_shape(input: str,
     with rasterio.open(input) as src:
         # Initialize an empty list to store the statistics
         stats = []
+        if breaks is not None and percentages:
+            # Initialize an empty list to store the percentages
+            df_percentages = []
+
+            if threshold is not None:
+                thresholds = []
 
         # Loop over each geometry in the GeoDataFrame
         for geom in gdf.geometry:
@@ -80,8 +88,6 @@ def summarise_by_shape(input: str,
                                                           crop=True,
                                                           all_touched=True,
                                                           nodata=nodata_value)
-            
-            #TODO: use the portions of the pixels inside the geometry to weight the statistics
 
             # we only care about the data, not the shape
             out_data = out_image.flatten()
@@ -91,22 +97,27 @@ def summarise_by_shape(input: str,
 
             if len(out_data) == 0:
                 stats.append(nodata_value)
+                if breaks is not None and percentages:
+                    percentages.append([nodata_value] * (len(breaks) + 1))
                 continue
 
             # if we want the mode, we assume that the data is either integer or should be classified
             if statistic == 'mode':
                 if breaks is not None:
                     out_data = np.digitize(out_data, breaks)
-                    
+
                 # get the most frequent value
                 stat = np.bincount(out_data).argmax()
-            
+
             elif statistic == 'mean':
                 stat = np.mean(out_data)
 
             elif statistic == 'median':
                 stat = np.median(out_data)
-            
+
+                if breaks is not None:
+                    stat = np.digitize(stat, breaks)
+
             else:
                 raise ValueError('The statistic must be either "mean", "median" or "mode".')
 
@@ -116,6 +127,25 @@ def summarise_by_shape(input: str,
             # Append the statistic to the list
             stats.append(stat)
 
+            if breaks is not None and percentages:
+                # Get the histogram of the values
+                hist, _ = np.histogram(out_data, bins=[-np.inf] + breaks + [np.inf])
+
+                # Turn the histogram into percentages of the total rounded to 0 decimals
+                hist_percentages = np.round(hist / hist.sum() * 100, 0)
+
+                if threshold is not None:
+                     # Start from the highest class and move to the lower classes
+                    total_percentage = 0
+                    for i in range(len(hist_percentages) - 1, -1, -1):
+                        total_percentage += hist_percentages[i]
+                        if total_percentage > threshold:
+                            # Record the current class and break the loop
+                            thresholds.append(i)
+                            break
+
+                # Add the histogram percentages to the list
+                df_percentages.append(hist_percentages)
 
     # set the name of the new field
     if name is None:
@@ -124,7 +154,18 @@ def summarise_by_shape(input: str,
     # option 1: add the statistics to the GeoDataFrame and save as a shapefile
     # note that the legend will be the same as the breaks, but it won't show in the file.
     if output.endswith('.shp'):
-        gdf[name] = stats
+        if percentages:
+            # turn the list of lists into a numpy array
+            df_percentages = np.array(df_percentages)
+            for i in range(len(breaks) + 1):
+                gdf[f'class_{i}'] = df_percentages[:, i]
+
+            if threshold is not None:
+                gdf[name] = thresholds
+        else:
+            if threshold is not None:
+                gdf[name] = stats
+
         gdf.to_file(output)
 
     # option 2: save the statistics as a csv
@@ -139,7 +180,7 @@ def summarise_by_shape(input: str,
             legend = ["-inf : " + str(breaks[0])]
             legend.extend([f'{breaks[i]} : {breaks[i+1]}' for i in range(len(breaks)-1)])
             legend.append(str(breaks[-1]) + ' : inf')
-            
+
             stats_legend = []
             for i in range(len(stats)):
                 if np.isnan(stats[i]) or stats[i] == nodata_value:
@@ -148,11 +189,18 @@ def summarise_by_shape(input: str,
                     stats_legend.append(legend[int(stats[i])])
 
             gdf[name + '_legend'] = stats_legend
+
+        if breaks is not None and percentages:
+            # turn the list of lists into a numpy array
+            df_percentages = np.array(df_percentages)
+            for i in range(len(breaks) + 1):
+                gdf[f'class_{i}'] = df_percentages[:, i]
+
         gdf.to_csv(output)
 
     if rm_input:
         remove_file(input)
-    
+
     if rm_shapes:
         remove_file(shapes)
 
