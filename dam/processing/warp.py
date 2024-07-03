@@ -1,12 +1,15 @@
 from osgeo import gdal, gdalconst
 import tempfile
 
+from rasterio.windows import Window
+import rasterio
+
 from typing import Optional
 import numpy as np
 import os
 
-from .utils.io_geotiff import read_geotiff_asGDAL, write_geotiff_singleband, read_geotiff_as_array
-from .utils.rm import remove_file
+from ..utils.io_geotiff import read_geotiff, write_geotiff
+from ..utils.rm import remove_file
 
 def match_grid(input: str,
                grid: str,
@@ -34,15 +37,18 @@ def match_grid(input: str,
         output = input.replace('.tif', '_regridded.tif')
 
     # Open the input and reference raster files
-    input_ds = read_geotiff_asGDAL(input)
+    input_ds = read_geotiff(input, out='gdal')
     input_transform = input_ds.GetGeoTransform()
     input_projection = input_ds.GetProjection()
 
     if nodata_value is not None:
         input_ds.GetRasterBand(1).SetNoDataValue(nodata_value)
 
+    in_type = input_ds.GetRasterBand(1).DataType
+    input_ds = None
+
     # Open the reference raster file
-    input_grid = read_geotiff_asGDAL(grid)
+    input_grid = read_geotiff(grid, out='gdal')
     grid_transform = input_grid.GetGeoTransform()
     grid_projection = input_grid.GetProjection()
 
@@ -55,42 +61,69 @@ def match_grid(input: str,
     output_bounds = [grid_transform[0], grid_transform[3], grid_transform[0] + grid_transform[1] * input_grid.RasterXSize,
                      grid_transform[3] + grid_transform[5] * input_grid.RasterYSize]
     
+    # set the type of the output to the type of the input if resampling is nearest neighbour, otherwise to float32
+    if resampling == gdalconst.GRA_NearestNeighbour:
+        output_type = in_type
+    else:
+        output_type = gdalconst.GDT_Float32
+
     os.makedirs(os.path.dirname(output), exist_ok=True)
     gdal.Warp(output, input, outputBounds=output_bounds, #outputBoundsSRS = input_projection,
               srcSRS=input_projection, dstSRS=grid_projection,
               xRes=grid_transform[1], yRes=grid_transform[5], resampleAlg=resampling,
               options=['NUM_THREADS=ALL_CPUS'],
+              outputType=output_type,
               format='GTiff', creationOptions=['COMPRESS=LZW'], multithread=True)
     
     if nodata_threshold is not None:
-        # make a mask of the nodata values in the original input
-        if np.isnan(nodata_value):
-            mask = np.isnan(input_ds.GetRasterBand(1).ReadAsArray())
-        else:
-            mask = input_ds.GetRasterBand(1).ReadAsArray() == nodata_value
+
+        # Define chunk size
+        chunk_size = 5000
+
+        # Open the dataset
+        with rasterio.open(input) as src:
+            # Calculate number of chunks in each dimension
+            n_chunks_x = src.width // chunk_size
+            n_chunks_y = src.height // chunk_size
+
+            # Initialize an empty mask
+            mask = np.empty((src.count, src.height, src.width), dtype=bool)
+
+            # Loop over the chunks
+            for i in range(n_chunks_y):
+                for j in range(n_chunks_x):
+                    # Define the window
+                    window = Window(j*chunk_size, i*chunk_size, chunk_size, chunk_size)
+                    # Read the data for the current chunk
+                    data_chunk = src.read(window=window)
+                    # Create the mask for the current chunk
+                    mask_chunk = np.isclose(data_chunk, nodata_value, equal_nan=True)
+                    # Store the mask chunk in the correct position
+                    mask[:, i*chunk_size:(i+1)*chunk_size, j*chunk_size:(j+1)*chunk_size] = mask_chunk
+
+        # # make a mask of the nodata values in the original input
+        # mask_data = read_geotiff(input, out='xarray')
+        # mask = np.isclose(mask_data.values, nodata_value, equal_nan=True)
+
         with tempfile.TemporaryDirectory() as tempdir:
             maskfile = os.path.join(tempdir, 'nan_mask.tif')
 
-            write_geotiff_singleband(maskfile, input_transform, input_projection, mask, nodata_value = 0)
+            mask = mask.astype(np.uint8)
+            write_geotiff(mask, filename = maskfile, template = input, nodata_value = 254)
             mask = None
 
             avg_nan = match_grid(maskfile, grid, 'Average')
 
             # set the output to nodata where the value of mask is > nodata_threshold
-            mask = read_geotiff_as_array(avg_nan)
+            mask = read_geotiff(avg_nan, out = 'array')
             mask = mask > nodata_threshold
-            
-            output_ds = read_geotiff_asGDAL(output)
-            output_array = output_ds.GetRasterBand(1).ReadAsArray()
 
-            geotransform = output_ds.GetGeoTransform()
-            geoprojection = output_ds.GetProjection()
-            metadata = output_ds.GetMetadata()
+            output_array = read_geotiff(output, out = 'array')
+            metadata = read_geotiff(output, out = 'xarray').attrs
 
-            output_array[mask] = nodata_value
-            write_geotiff_singleband(output, geotransform, geoprojection, output_array, metadata = metadata, nodata_value = nodata_value)
+            output_array[mask == 1] = nodata_value
+            write_geotiff(data = output_array, filename = output, template = output, metadata=metadata, nodata_value = nodata_value)
     
-    input_ds = None
     if rm_input:
         remove_file(input)
     
