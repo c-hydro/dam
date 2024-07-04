@@ -14,6 +14,15 @@ def interp_with_elevation(input: str,
                           rm_input: bool = False,
                           minimum_number_sensors_in_region: Optional[int] = 10,
                           minimum_r2: Optional[float] = 0.25) -> str:
+    """
+    Interpolate data using elevation. The input is a csv file with columns for latitude, longitude, and data.
+    Note that the csv file must have five columns in this order: station_id', 'station_name', 'lat', 'lon', 'data'.
+    Names of this csv file can change, but the order of the columns must be the same.
+    The homogeneous_regions is a raster map with the same shape as the DEM, where each value corresponds to a region.
+    The DEM is a raster map with elevation values.
+    The data is interpolated using a linear regression with elevation for each homogeneous region.
+    The interpolated data is saved to a new raster map.
+    """
 
     # load data
     data = read_csv(input)
