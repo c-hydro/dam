@@ -10,7 +10,7 @@ def interp_with_elevation(input: str,
                           homogeneous_regions: str,
                           dem: str,
                           name_columns_csv: list[str],
-                          destination: str,
+                          output: str,
                           rm_input: bool = False,
                           minimum_number_sensors_in_region: Optional[int] = 10,
                           minimum_r2: Optional[float] = 0.25) -> str:
@@ -94,5 +94,5 @@ def interp_with_elevation(input: str,
     map_2d = xr.DataArray(map_target,
                           coords=[dem.coords[dem.coords.dims[0]], dem.coords[dem.coords.dims[1]]],
                           dims=['y', 'x'])
-    write_geotiff_fromXarray(map_2d, destination)
+    write_geotiff_fromXarray(map_2d, output)
 

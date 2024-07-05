@@ -150,7 +150,7 @@ def filter_csv_with_climatology(input: str,
                      climatology: str,
                      thresholds: list[float],
                      name_columns_csv: list[str],
-                     destination: Optional[str] = None,
+                     output: Optional[str] = None,
                      rm_input: bool = False) -> str:
     """
         Filter a dataframe based on a climatology. The climatology is a raster map and the dataframe is a csv file.
@@ -158,8 +158,8 @@ def filter_csv_with_climatology(input: str,
         The dataframe is then saved to a new csv file.
     """
 
-    if destination is None:
-        destination = input.replace('.csv', '_filtered.csv')
+    if output is None:
+        output = input.replace('.csv', '_filtered.csv')
 
     # load climatology as xarray
     climatology = read_geotiff(climatology)
@@ -184,9 +184,9 @@ def filter_csv_with_climatology(input: str,
     data = data.dropna(axis='rows', how='all')
 
     # save to csv
-    save_csv(data, destination)
+    save_csv(data, output)
 
     if rm_input:
         remove_file(input)
 
-    return destination
+    return output

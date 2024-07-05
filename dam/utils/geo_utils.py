@@ -27,23 +27,26 @@ def ltln2val_from_2dDataArray(input_map: xr.DataArray,
 
 # -------------------------------------------------------------------------------------
 # Method to extract residuals from xr.DataArray based on lat-lon and values
-def compute_residuals(input_map: str,
-                      input_data: str,
+def compute_residuals(input: list[str],
                       name_columns_csv: list[str],
                       method: Optional[str] = 'nearest',
-                      destination: Optional[str] = None,
+                      output: Optional[str] = None,
                       method_residuals: Optional[str] = 'data_minus_map'):
     """
     Compute residuals between data and map. The input is a csv file with columns for latitude, longitude, and data.
     Note that the csv file must have five columns in this order: station_id', 'station_name', 'lat', 'lon', 'data'.
     Names of this csv file can change, but the order of the columns must be the same.
     Another input is a raster map.
+    Inputs are given as a LIST of two elements: [input_data, input_map].
     The residuals are computed with a given method, whether as data minus map or map minus data.
     The residuals are saved to a new csv file.
     """
 
-    if destination is None:
-        destination = input_data.replace('.csv', '_residuals.csv')
+    input_data = input[0]
+    input_map = input[1]
+
+    if output is None:
+        output = input_data.replace('.csv', '_residuals.csv')
 
     # load data
     data = read_csv(input_data)
@@ -68,9 +71,9 @@ def compute_residuals(input_map: str,
 
     # append residuals to data as a new column, then save
     data['residuals'] = residuals.values
-    save_csv(data, destination)
+    save_csv(data, output)
 
-    return destination
+    return output
 # -------------------------------------------------------------------------------------
 
 

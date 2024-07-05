@@ -11,16 +11,11 @@ def main():
     name_columns_data_in = ['station_id', 'station_name', 'lat', 'lon', 'data']
     path_climatology_QAQC = '/home/francesco/Documents/Projects/Drought/IT_DROUGHT/DEV_procedure/test_interp/static/BIGBANG/td_ltaa_%mm_WGS84.tif'
     path_out_elevation = '/home/francesco/Documents/Projects/Drought/IT_DROUGHT/DEV_procedure/test_interp/maps/%Y/%m/%d/AirT_%Y%m%d%H%M.tif'
-    path_out_with_residuals = '/home/francesco/Documents/Projects/Drought/IT_DROUGHT/DEV_procedure/test_interp/maps/%Y/%m/%d/AirT_with_residuals_%Y%m%d%H%M.tif'
-    path_out_smoothed = '/home/francesco/Documents/Projects/Drought/IT_DROUGHT/DEV_procedure/test_interp/maps/%Y/%m/%d/AirT_smoothed_%Y%m%d%H%M.tif'
     period = pd.date_range(start='2024-04-01', end='2024-04-02 00:00:00', freq='H')
     path_DEM = '/home/francesco/Documents/Projects/Drought/IT_DROUGHT/DEV_procedure/test_interp/static/DEM_Italy_grid_MCM_v2.tif'
     path_homogeneous_regions = '/home/francesco/Documents/Projects/Drought/IT_DROUGHT/DEV_procedure/test_interp/static/Zone_Vigilanza_01_2021_WGS84_v2.tif'
     #note: methods below require the grids to be in the same projection as the data (EPSG:4326) AND SAME GRID SIZE
     #also, dictionary keys must be the same as above
-    interpolation_method = 'linear_with_elevation'
-    interpolation_method_residuals = 'idw'
-    smoothing = True
     # ------------------------------------------
 
     # ------------------------------------------
@@ -40,13 +35,17 @@ def main():
                               name_columns_csv=name_columns_data_in,
                               homogeneous_regions=path_homogeneous_regions,
                               dem=path_DEM,
-                              destination=path_out_elevation_this_timestamp)
+                              output=path_out_elevation_this_timestamp)
 
         # compute residuals
-        path_residuals = compute_residuals(input_map=path_out_elevation_this_timestamp,
-                                           input_data=path_filtered,
+        path_residuals = compute_residuals(input=[path_filtered, path_out_elevation_this_timestamp],
                                            name_columns_csv=name_columns_data_in)
+
+        # compute idw of residuals
         print()
+        #path_idw_residuals =
+
+
 
 
 
