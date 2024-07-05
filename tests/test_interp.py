@@ -1,9 +1,7 @@
 import pandas as pd
-import logging
-from dam.utils.logging import set_logging
-from dam.utils.io_geotiff import read_geotiff_asXarray, write_geotiff_fromXarray
 from dam.interp import interp_with_elevation
 from dam.filter import filter_csv_with_climatology
+from dam.utils.geo_utils import compute_residuals
 
 def main():
 
@@ -44,7 +42,12 @@ def main():
                               dem=path_DEM,
                               destination=path_out_elevation_this_timestamp)
 
-        # compute and apply residuals
+        # compute residuals
+        path_residuals = compute_residuals(input_map=path_out_elevation_this_timestamp,
+                                           input_data=path_filtered,
+                                           name_columns_csv=name_columns_data_in)
+        print()
+
 
 
         # smoothing
