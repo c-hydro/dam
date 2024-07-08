@@ -3,14 +3,21 @@ import xarray as xr
 from sklearn import linear_model
 from typing import Optional
 from dam.utils.geo_utils import ltln2val_from_2dDataArray
-from dam.utils.io_csv import read_csv
+from dam.utils.io_csv import read_csv, save_csv
 from dam.utils.io_geotiff import read_geotiff_asXarray, write_geotiff_fromXarray
+from dam.utils.random_string import random_string
+from dam.utils.io_vrt import create_point_vrt
+from dam.utils.exec_process import exec_process
+from dam.utils.rm import remove_file
+from dam.filter import apply_raster_mask
+import os
+import pandas as pd
 
 def interp_with_elevation(input: str,
                           homogeneous_regions: str,
                           dem: str,
                           name_columns_csv: list[str],
-                          output: str,
+                          output:Optional[str]=None,
                           rm_input: bool = False,
                           minimum_number_sensors_in_region: Optional[int] = 10,
                           minimum_r2: Optional[float] = 0.25) -> str:
@@ -23,6 +30,9 @@ def interp_with_elevation(input: str,
     The data is interpolated using a linear regression with elevation for each homogeneous region.
     The interpolated data is saved to a new raster map.
     """
+
+    if output is None:
+        output = input.replace('.csv', '_interp_elevation.tif')
 
     # load data
     data = read_csv(input)
@@ -94,5 +104,75 @@ def interp_with_elevation(input: str,
     map_2d = xr.DataArray(map_target,
                           coords=[dem.coords[dem.coords.dims[0]], dem.coords[dem.coords.dims[1]]],
                           dims=['y', 'x'])
+    os.makedirs(os.path.dirname(output), exist_ok=True)
     write_geotiff_fromXarray(map_2d, output)
 
+
+def interp_idw(input:str,
+               name_columns_csv: list[str],
+               grid:str,
+               output:Optional[str]=None,
+               exponent_idw:Optional[int]=2,
+               interp_radius_x:Optional[float]=1,
+               interp_radius_y:Optional[float]=1,
+               interp_no_data:Optional[float]=-9999.0,
+               epsg_code:Optional[str]='4326',
+               n_cpu:Optional[int]=1,
+               rm_temp:bool=True) -> str:
+    """
+    """
+
+    if output is None:
+        output = input.replace('.csv', '_interp_idw.tif')
+
+    # load data
+    data = read_csv(input)
+    lat_points = data[name_columns_csv[2]].to_numpy()
+    lon_points = data[name_columns_csv[3]].to_numpy()
+    data_points = data[name_columns_csv[4]].to_numpy()
+
+    # load grid
+    grid = read_geotiff_asXarray(grid)
+    grid = np.squeeze(grid)
+
+    # create random tags for temp files
+    tag = random_string()
+
+    # define paths
+    path_output, file_output = os.path.split(output)
+    os.makedirs(path_output, exist_ok=True)
+    file_name_csv = os.path.join(path_output, tag + '.csv')
+    file_name_vrt = os.path.join(path_output, tag + '.vrt')
+
+    # Define geographical information
+    geox_out_min = np.min(grid.coords[grid.coords.dims[1]]).values
+    geox_out_max = np.max(grid.coords[grid.coords.dims[1]]).values
+    geoy_out_min = np.min(grid.coords[grid.coords.dims[0]]).values
+    geoy_out_max = np.max(grid.coords[grid.coords.dims[0]]).values
+    geo_out_cols = grid.shape[0]
+    geo_out_rows = grid.shape[1]
+
+    # create and save csv file
+    pd_data = pd.DataFrame({'x': lon_points, 'y': lat_points, 'values': data_points})
+    pd_data.set_index('x', inplace=True)
+    save_csv(pd_data, file_name_csv)
+
+    # Create vrt file
+    create_point_vrt(file_name_vrt, file_name_csv, tag)
+
+    # build command
+    interp_option = ('-a invdist:power=' + str(exponent_idw) +':smoothing=0.0:radius1=' +
+                     str(interp_radius_x) + ':radius2=' +
+                     str(interp_radius_y) + ':angle=0.0:nodata=' +
+                     str(interp_no_data))
+    line_command = ('gdal_grid -zfield "values"  -txe ' +
+                    str(geox_out_min) + ' ' + str(geox_out_max) + ' -tye ' +
+                    str(geoy_out_min) + ' ' + str(geoy_out_max) + ' -a_srs EPSG:' + epsg_code + ' ' +
+                    interp_option + ' -outsize ' + str(geo_out_rows) + ' ' + str(geo_out_cols) +
+                    ' -of GTiff -ot Float32 -l ' + tag + ' ' +
+                    file_name_vrt + ' ' + output + ' --config GDAL_NUM_THREADS ' + str(n_cpu))
+    [std_out, std_err, std_exit] = exec_process(command_line=line_command)
+
+    if rm_temp:
+        remove_file(file_name_csv)
+        remove_file(file_name_vrt)

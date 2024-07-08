@@ -69,8 +69,9 @@ def compute_residuals(input: list[str],
     else:
         raise NotImplementedError('Method method_residuals not implemented')
 
-    # append residuals to data as a new column, then save
-    data['residuals'] = residuals.values
+    # create new dataframe from data and replace data with residuals
+    data = data.drop(columns=['data'])
+    data['data'] = residuals
     save_csv(data, output)
 
     return output
