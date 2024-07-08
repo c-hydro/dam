@@ -72,6 +72,7 @@ def compute_residuals(input: list[str],
     # create new dataframe from data and replace data with residuals
     data = data.drop(columns=['data'])
     data['data'] = residuals
+    data.set_index(name_columns_csv[0], inplace=True)
     save_csv(data, output)
 
     return output

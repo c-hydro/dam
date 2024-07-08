@@ -180,6 +180,7 @@ def filter_csv_with_climatology(input: str,
     # apply threshold tp dataframe
     data[data[name_columns_csv[4]] < climatology_points_min.values] = np.nan
     data[data[name_columns_csv[4]] > climatology_points_max.values] = np.nan
+    data.set_index(name_columns_csv[0], inplace=True)
     # remove columns with all NaNs
     data = data.dropna(axis='rows', how='all')
 

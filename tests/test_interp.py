@@ -49,6 +49,7 @@ def main():
                                         grid=path_DEM, n_cpu=6)
 
         # load original map and residuals, then sum them
+        print()
 
 
 

@@ -120,6 +120,12 @@ def interp_idw(input:str,
                n_cpu:Optional[int]=1,
                rm_temp:bool=True) -> str:
     """
+    Interpolate data using IDW. The input is a csv file with columns for latitude, longitude, and data.
+    Note that the csv file must have five columns in this order: station_id', 'station_name', 'lat', 'lon', 'data'.
+    Names of this csv file can change, but the order of the columns must be the same.
+    The grid is a raster map where the data will be interpolated.
+    The data is interpolated using IDW.
+    The interpolated data is saved to a new raster map.
     """
 
     if output is None:
@@ -171,7 +177,7 @@ def interp_idw(input:str,
                     interp_option + ' -outsize ' + str(geo_out_rows) + ' ' + str(geo_out_cols) +
                     ' -of GTiff -ot Float32 -l ' + tag + ' ' +
                     file_name_vrt + ' ' + output + ' --config GDAL_NUM_THREADS ' + str(n_cpu))
-    [std_out, std_err, std_exit] = exec_process(command_line=line_command)
+    exec_process(command_line=line_command)
 
     if rm_temp:
         remove_file(file_name_csv)
