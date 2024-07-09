@@ -2,13 +2,14 @@ import pandas as pd
 from dam.interp import interp_with_elevation, interp_idw
 from dam.filter import filter_csv_with_climatology
 from dam.utils.geo_utils import compute_residuals
+from dam.utils.io_geotiff import read_geotiff_asXarray
 
 def main():
 
     # ------------------------------------------
     # parameters
     path_data_in = '/home/francesco/Documents/Projects/Drought/IT_DROUGHT/DEV_procedure/test_drops2/%Y/%m/%d/DROPS2_TERMOMETRO_%Y%m%d%H%M.csv'
-    name_columns_data_in = ['station_id', 'station_name', 'lat', 'lon', 'data']
+    name_lat_lon_data_in = ['lat', 'lon', 'data']
     path_climatology_QAQC = '/home/francesco/Documents/Projects/Drought/IT_DROUGHT/DEV_procedure/test_interp/static/BIGBANG/td_ltaa_%mm_WGS84.tif'
     path_out_elevation = '/home/francesco/Documents/Projects/Drought/IT_DROUGHT/DEV_procedure/test_interp/maps/%Y/%m/%d/AirT_%Y%m%d%H%M.tif'
     period = pd.date_range(start='2024-04-01', end='2024-04-02 00:00:00', freq='H')
@@ -28,27 +29,34 @@ def main():
         path_data_in_this_timestamp = timestamp.strftime(path_data_in)
         path_filtered = filter_csv_with_climatology(
             input=path_data_in_this_timestamp, climatology=path_climatology_QAQC_this_timestamp,
-            thresholds = [25, 25], name_columns_csv=name_columns_data_in)
+            thresholds = [25, 25], name_lat_lon_data_csv=name_lat_lon_data_in)
 
         # interpolate with elevation
         path_out_elevation_this_timestamp = timestamp.strftime(path_out_elevation)
         interp_with_elevation(input=path_filtered,
-                              name_columns_csv=name_columns_data_in,
+                              name_lat_lon_data_csv=name_lat_lon_data_in,
                               homogeneous_regions=path_homogeneous_regions,
                               dem=path_DEM,
                               output=path_out_elevation_this_timestamp)
 
         # compute residuals
         path_residuals = compute_residuals(input=[path_filtered, path_out_elevation_this_timestamp],
-                                           name_columns_csv=name_columns_data_in)
+                                           name_lat_lon_data_csv=name_lat_lon_data_in)
 
         # compute idw of residuals
         path_out_residuals_this_timestamp = path_out_elevation_this_timestamp.replace('.tif', '_idw_residuals.tif')
-        path_idw_residuals = interp_idw(input=path_residuals, name_columns_csv=name_columns_data_in,
+        path_idw_residuals = interp_idw(input=path_residuals, name_lat_lon_data_csv=name_lat_lon_data_in,
                                         output=path_out_residuals_this_timestamp,
-                                        grid=path_DEM, n_cpu=6)
+                                        grid=path_DEM, n_cpu=6,
+                                        exponent_idw=2,
+                                        interp_radius_x=1,
+                                        interp_radius_y=1)
 
         # load original map and residuals, then sum them
+        map_temp = read_geotiff_asXarray(path_out_elevation_this_timestamp)
+        map_residuals = read_geotiff_asXarray(path_out_residuals_this_timestamp)
+
+
         print()
 
 

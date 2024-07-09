@@ -149,7 +149,7 @@ def apply_raster_mask(input: str,
 def filter_csv_with_climatology(input: str,
                      climatology: str,
                      thresholds: list[float],
-                     name_columns_csv: list[str],
+                     name_lat_lon_data_csv: list[str],
                      output: Optional[str] = None,
                      rm_input: bool = False) -> str:
     """
@@ -167,8 +167,8 @@ def filter_csv_with_climatology(input: str,
 
     #load data and get lat, lon
     data = read_csv(input)
-    lat = data[name_columns_csv[2]].to_numpy()
-    lon = data[name_columns_csv[3]].to_numpy()
+    lat = data[name_lat_lon_data_csv[0]].to_numpy()
+    lon = data[name_lat_lon_data_csv[1]].to_numpy()
 
     #now get climatology values for the same lat and lon
     climatology_points = (ltln2val_from_2dDataArray(input_map=climatology, lat=lat, lon=lon, method="nearest"))
@@ -178,9 +178,9 @@ def filter_csv_with_climatology(input: str,
     climatology_points_max = climatology_points + thresholds[1]
 
     # apply threshold tp dataframe
-    data[data[name_columns_csv[4]] < climatology_points_min.values] = np.nan
-    data[data[name_columns_csv[4]] > climatology_points_max.values] = np.nan
-    data.set_index(name_columns_csv[0], inplace=True)
+    data[data[name_lat_lon_data_csv[2]] < climatology_points_min.values] = np.nan
+    data[data[name_lat_lon_data_csv[2]] > climatology_points_max.values] = np.nan
+    data.set_index(data.columns[0], inplace=True)
     # remove columns with all NaNs
     data = data.dropna(axis='rows', how='all')
 

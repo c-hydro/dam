@@ -16,15 +16,15 @@ import pandas as pd
 def interp_with_elevation(input: str,
                           homogeneous_regions: str,
                           dem: str,
-                          name_columns_csv: list[str],
+                          name_lat_lon_data_csv: list[str],
                           output:Optional[str]=None,
                           rm_input: bool = False,
                           minimum_number_sensors_in_region: Optional[int] = 10,
                           minimum_r2: Optional[float] = 0.25) -> str:
     """
     Interpolate data using elevation. The input is a csv file with columns for latitude, longitude, and data.
-    Note that the csv file must have five columns in this order: station_id', 'station_name', 'lat', 'lon', 'data'.
-    Names of this csv file can change, but the order of the columns must be the same.
+    Note that the csv file may have any column, but also needs to have latitude, longitude, and data.
+    Names of this csv file can change, but the ORDER of those columns in name_lat_lon_data_in must be the same.
     The homogeneous_regions is a raster map with the same shape as the DEM, where each value corresponds to a region.
     The DEM is a raster map with elevation values.
     The data is interpolated using a linear regression with elevation for each homogeneous region.
@@ -36,9 +36,9 @@ def interp_with_elevation(input: str,
 
     # load data
     data = read_csv(input)
-    lat_points = data[name_columns_csv[2]].to_numpy()
-    lon_points = data[name_columns_csv[3]].to_numpy()
-    data = data[name_columns_csv[4]].to_numpy()
+    lat_points = data[name_lat_lon_data_csv[0]].to_numpy()
+    lon_points = data[name_lat_lon_data_csv[1]].to_numpy()
+    data = data[name_lat_lon_data_csv[2]].to_numpy()
 
     #load dem and homogeneous regions
     dem = read_geotiff_asXarray(dem)
@@ -109,7 +109,7 @@ def interp_with_elevation(input: str,
 
 
 def interp_idw(input:str,
-               name_columns_csv: list[str],
+               name_lat_lon_data_csv: list[str],
                grid:str,
                output:Optional[str]=None,
                exponent_idw:Optional[int]=2,
@@ -133,9 +133,9 @@ def interp_idw(input:str,
 
     # load data
     data = read_csv(input)
-    lat_points = data[name_columns_csv[2]].to_numpy()
-    lon_points = data[name_columns_csv[3]].to_numpy()
-    data_points = data[name_columns_csv[4]].to_numpy()
+    lat_points = data[name_lat_lon_data_csv[0]].to_numpy()
+    lon_points = data[name_lat_lon_data_csv[1]].to_numpy()
+    data_points = data[name_lat_lon_data_csv[2]].to_numpy()
 
     # load grid
     grid = read_geotiff_asXarray(grid)

@@ -28,14 +28,14 @@ def ltln2val_from_2dDataArray(input_map: xr.DataArray,
 # -------------------------------------------------------------------------------------
 # Method to extract residuals from xr.DataArray based on lat-lon and values
 def compute_residuals(input: list[str],
-                      name_columns_csv: list[str],
+                      name_lat_lon_data_csv: list[str],
                       method: Optional[str] = 'nearest',
                       output: Optional[str] = None,
                       method_residuals: Optional[str] = 'data_minus_map'):
     """
     Compute residuals between data and map. The input is a csv file with columns for latitude, longitude, and data.
-    Note that the csv file must have five columns in this order: station_id', 'station_name', 'lat', 'lon', 'data'.
-    Names of this csv file can change, but the order of the columns must be the same.
+    Note that the csv file may have any column, but also needs to have latitude, longitude, and data.
+    Names of this csv file can change, but the ORDER of those columns in name_lat_lon_data_in must be the same.
     Another input is a raster map.
     Inputs are given as a LIST of two elements: [input_data, input_map].
     The residuals are computed with a given method, whether as data minus map or map minus data.
@@ -50,9 +50,9 @@ def compute_residuals(input: list[str],
 
     # load data
     data = read_csv(input_data)
-    lat_points = data[name_columns_csv[2]].to_numpy()
-    lon_points = data[name_columns_csv[3]].to_numpy()
-    data_points = data[name_columns_csv[4]].to_numpy()
+    lat_points = data[name_lat_lon_data_csv[0]].to_numpy()
+    lon_points = data[name_lat_lon_data_csv[1]].to_numpy()
+    data_points = data[name_lat_lon_data_csv[2]].to_numpy()
 
     # load map
     map = read_geotiff_asXarray(input_map)
@@ -72,7 +72,7 @@ def compute_residuals(input: list[str],
     # create new dataframe from data and replace data with residuals
     data = data.drop(columns=['data'])
     data['data'] = residuals
-    data.set_index(name_columns_csv[0], inplace=True)
+    data.set_index(data.columns[0], inplace=True)
     save_csv(data, output)
 
     return output
