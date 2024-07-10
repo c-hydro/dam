@@ -18,9 +18,9 @@ def interp_with_elevation(input: str,
                           dem: str,
                           name_lat_lon_data_csv: list[str],
                           output:Optional[str]=None,
-                          rm_input: bool = False,
                           minimum_number_sensors_in_region: Optional[int] = 10,
-                          minimum_r2: Optional[float] = 0.25) -> str:
+                          minimum_r2: Optional[float] = 0.25,
+                          rm_input: bool = False) -> str:
     """
     Interpolate data using elevation. The input is a csv file with columns for latitude, longitude, and data.
     Note that the csv file may have any column, but also needs to have latitude, longitude, and data.
@@ -104,6 +104,7 @@ def interp_with_elevation(input: str,
     map_2d = xr.DataArray(map_target,
                           coords=[dem.coords[dem.coords.dims[0]], dem.coords[dem.coords.dims[1]]],
                           dims=['y', 'x'])
+    map_2d.rio.set_crs(dem.rio.crs)
     os.makedirs(os.path.dirname(output), exist_ok=True)
     write_geotiff_fromXarray(map_2d, output)
 
@@ -112,12 +113,13 @@ def interp_idw(input:str,
                name_lat_lon_data_csv: list[str],
                grid:str,
                output:Optional[str]=None,
-               exponent_idw:Optional[int]=2,
-               interp_radius_x:Optional[float]=1,
-               interp_radius_y:Optional[float]=1,
-               interp_no_data:Optional[float]=-9999.0,
-               epsg_code:Optional[str]='4326',
+               exponent_idw:Optional[int] = 2,
+               interp_radius_x:Optional[float] = 1,
+               interp_radius_y:Optional[float] = 1,
+               interp_no_data:Optional[float] = np.nan,
+               epsg_code:Optional[str] = '4326',
                n_cpu:Optional[int]=1,
+               rm_input:bool=False,
                rm_temp:bool=True) -> str:
     """
     Interpolate data using IDW. The input is a csv file with columns for latitude, longitude, and data.

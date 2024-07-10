@@ -59,6 +59,5 @@ def stream_process(std_out=None, std_err=None):
     if std_out is None and std_err is None:
         return True
     else:
-        logging.warning(' ===> Exception occurred during process execution!')
         return False
 # -------------------------------------------------------------------------------------

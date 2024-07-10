@@ -1,7 +1,7 @@
 import xarray as xr
 import numpy as np
 from dam.utils.io_csv import read_csv, save_csv
-from dam.utils.io_geotiff import read_geotiff_asXarray
+from dam.utils.io_geotiff import read_geotiff_asXarray, write_geotiff_fromXarray
 from typing import Optional
 
 # -------------------------------------------------------------------------------------
@@ -77,5 +77,38 @@ def compute_residuals(input: list[str],
 
     return output
 # -------------------------------------------------------------------------------------
+
+# -------------------------------------------------------------------------------------
+def apply_residuals(input: list[str],
+                    method: Optional[str] = 'data_minus_map',
+                    output: Optional[str] = None):
+
+    path_map = input[0]
+    path_residuals = input[1]
+
+    # load maps
+    map_temp = read_geotiff_asXarray(path_map)
+    map_temp = map_temp.squeeze()  # remove single dimensions, usually time
+    map_residuals = read_geotiff_asXarray(path_residuals)
+    map_residuals = map_residuals.squeeze()  # remove single dimensions, usually time
+
+    # set nodata value to nan
+    map_residuals = map_residuals.where(~np.isclose(map_residuals, np.nan, equal_nan = True), 0)
+
+    # make sure coordinates of residuals and data are in the same order
+    map_residuals = map_residuals.rio.reproject_match(map_temp)
+
+    #apply residuals
+    if method == 'data_minus_map':
+        map_with_residuals = map_temp + map_residuals
+    elif method == 'map_minus_data':
+        map_with_residuals = map_temp - map_residuals
+    else:
+        raise NotImplementedError('Method method_residuals not implemented')
+
+    # save to geotiff
+    if output is None:
+        output = path_map.replace('.tif', '_with_residuals.tif')
+    write_geotiff_fromXarray(map_with_residuals, output)
 
 

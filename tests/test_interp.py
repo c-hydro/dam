@@ -1,7 +1,7 @@
 import pandas as pd
 from dam.interp import interp_with_elevation, interp_idw
 from dam.filter import filter_csv_with_climatology
-from dam.utils.geo_utils import compute_residuals
+from dam.utils.geo_utils import compute_residuals, apply_residuals
 from dam.utils.io_geotiff import read_geotiff_asXarray
 
 def main():
@@ -16,8 +16,7 @@ def main():
     path_DEM = '/home/francesco/Documents/Projects/Drought/IT_DROUGHT/DEV_procedure/test_interp/static/DEM_Italy_grid_MCM_v2.tif'
     path_MASK = '/home/francesco/Documents/Projects/Drought/IT_DROUGHT/DEV_procedure/test_interp/static/MCM_mask_0nan.tif'
     path_homogeneous_regions = '/home/francesco/Documents/Projects/Drought/IT_DROUGHT/DEV_procedure/test_interp/static/Zone_Vigilanza_01_2021_WGS84_v2.tif'
-    #note: methods below require the grids to be in the same projection as the data (EPSG:4326) AND SAME GRID SIZE
-    #also, dictionary keys must be the same as above
+    method_residuals = 'data_minus_map'
     # ------------------------------------------
 
     # ------------------------------------------
@@ -41,7 +40,8 @@ def main():
 
         # compute residuals
         path_residuals = compute_residuals(input=[path_filtered, path_out_elevation_this_timestamp],
-                                           name_lat_lon_data_csv=name_lat_lon_data_in)
+                                           name_lat_lon_data_csv=name_lat_lon_data_in,
+                                           method_residuals=method_residuals)
 
         # compute idw of residuals
         path_out_residuals_this_timestamp = path_out_elevation_this_timestamp.replace('.tif', '_idw_residuals.tif')
@@ -52,9 +52,18 @@ def main():
                                         interp_radius_x=1,
                                         interp_radius_y=1)
 
-        # load original map and residuals, then sum them
-        map_temp = read_geotiff_asXarray(path_out_elevation_this_timestamp)
-        map_residuals = read_geotiff_asXarray(path_out_residuals_this_timestamp)
+        # apply residuals
+        path_with_residuals_this_timestamp = apply_residuals(input=[path_out_elevation_this_timestamp, path_out_residuals_this_timestamp],
+                                                             method=method_residuals)
+        print()
+
+        # smoothing
+        #path_smoothed = gaussian_smoothing(input=map_with_residuals, sigma=1)
+
+
+
+        # mask on domain
+
 
 
         print()

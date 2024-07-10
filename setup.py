@@ -28,7 +28,8 @@ setup(
         'xarray>=2023.9.0',
         'rioxarray>=0.7.1',
         'unpackqa>=0.1.0',
-        'geopandas'
+        'geopandas',
+        'astropy>=6.1.1'
     ],
     python_requires='>=3.10',
     test_suite='tests',
