@@ -2,14 +2,15 @@ import numpy as np
 import xarray as xr
 from sklearn import linear_model
 from typing import Optional
-from dam.utils.geo_utils import ltln2val_from_2dDataArray
-from dam.utils.io_csv import read_csv, save_csv
-from dam.utils.io_geotiff import read_geotiff_asXarray, write_geotiff_fromXarray
-from dam.utils.random_string import random_string
-from dam.utils.io_vrt import create_point_vrt
-from dam.utils.exec_process import exec_process
-from dam.utils.rm import remove_file
-from dam.filter import apply_raster_mask
+from ..utils.geo_utils import ltln2val_from_2dDataArray
+from ..utils.io_csv import read_csv, save_csv
+from ..utils.io_geotiff import read_geotiff_asXarray, write_geotiff_fromXarray
+from ..utils.random_string import random_string
+from ..utils.io_vrt import create_point_vrt
+from ..utils.exec_process import exec_process
+from ..utils.rm import remove_file
+
+from .filter import apply_raster_mask
 import os
 import pandas as pd
 
@@ -108,6 +109,9 @@ def interp_with_elevation(input: str,
     os.makedirs(os.path.dirname(output), exist_ok=True)
     write_geotiff_fromXarray(map_2d, output)
 
+    if rm_input:
+        remove_file(input)
+
 
 def interp_idw(input:str,
                name_lat_lon_data_csv: list[str],
@@ -184,3 +188,6 @@ def interp_idw(input:str,
     if rm_temp:
         remove_file(file_name_csv)
         remove_file(file_name_vrt)
+
+    if rm_input:
+        remove_file(input)

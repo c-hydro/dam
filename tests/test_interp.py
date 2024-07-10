@@ -1,8 +1,9 @@
 import pandas as pd
-from dam.interp import interp_with_elevation, interp_idw
-from dam.filter import filter_csv_with_climatology
-from dam.utils.geo_utils import compute_residuals, apply_residuals
-from dam.utils.io_geotiff import read_geotiff_asXarray
+from dam.processing.interp import interp_with_elevation, interp_idw
+from dam.processing.filter import filter_csv_with_climatology, apply_raster_mask
+from dam.utils.geo_utils import compute_residuals
+from dam.processing.calc import combine_raster_data
+from dam.processing.smoothing import gaussian_smoothing
 
 def main():
 
@@ -50,36 +51,21 @@ def main():
                                         grid=path_DEM, n_cpu=6,
                                         exponent_idw=2,
                                         interp_radius_x=1,
-                                        interp_radius_y=1)
+                                        interp_radius_y=1, rm_input=True)
 
         # apply residuals
-        path_with_residuals_this_timestamp = apply_residuals(input=[path_out_elevation_this_timestamp, path_out_residuals_this_timestamp],
-                                                             method=method_residuals)
-        print()
+        path_map_with_residuals = path_out_elevation_this_timestamp.replace('.tif', '_with_residuals.tif')
+        combine_raster_data(input=[path_out_elevation_this_timestamp, path_out_residuals_this_timestamp],
+                            statistic='sum', output= path_map_with_residuals,
+                            na_ignore=True, rm_input=True)
+        # we sum them as we computed the residuals as data - map, thus data = map + residuals
 
         # smoothing
-        #path_smoothed = gaussian_smoothing(input=map_with_residuals, sigma=1)
+        path_map_with_residuals_smoothed = gaussian_smoothing(input=path_map_with_residuals, stddev_kernel=8, rm_input=True)
 
-
-
-        # mask on domain
-
-
-
-        print()
-
-
-
-
-
-
-
-
-        # smoothing
-
-        # mask on domain
-
-
+        # apply mask
+        apply_raster_mask(path_map_with_residuals_smoothed, path_MASK,
+                          output=path_map_with_residuals_smoothed.replace('.tif', '_masked.tif'), rm_input=True)
     # ------------------------------------------
 
 

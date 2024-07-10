@@ -3,6 +3,7 @@ import numpy as np
 from dam.utils.io_csv import read_csv, save_csv
 from dam.utils.io_geotiff import read_geotiff_asXarray, write_geotiff_fromXarray
 from typing import Optional
+from ..utils.rm import remove_file
 
 # -------------------------------------------------------------------------------------
 # Method to extract values from xr.DataArray based on lat and lon
@@ -31,7 +32,8 @@ def compute_residuals(input: list[str],
                       name_lat_lon_data_csv: list[str],
                       method: Optional[str] = 'nearest',
                       output: Optional[str] = None,
-                      method_residuals: Optional[str] = 'data_minus_map'):
+                      method_residuals: Optional[str] = 'data_minus_map',
+                      rm_input: bool = False):
     """
     Compute residuals between data and map. The input is a csv file with columns for latitude, longitude, and data.
     Note that the csv file may have any column, but also needs to have latitude, longitude, and data.
@@ -75,40 +77,10 @@ def compute_residuals(input: list[str],
     data.set_index(data.columns[0], inplace=True)
     save_csv(data, output)
 
+    if rm_input:
+        remove_file(input)
+
     return output
 # -------------------------------------------------------------------------------------
 
-# -------------------------------------------------------------------------------------
-def apply_residuals(input: list[str],
-                    method: Optional[str] = 'data_minus_map',
-                    output: Optional[str] = None):
-
-    path_map = input[0]
-    path_residuals = input[1]
-
-    # load maps
-    map_temp = read_geotiff_asXarray(path_map)
-    map_temp = map_temp.squeeze()  # remove single dimensions, usually time
-    map_residuals = read_geotiff_asXarray(path_residuals)
-    map_residuals = map_residuals.squeeze()  # remove single dimensions, usually time
-
-    # set nodata value to nan
-    map_residuals = map_residuals.where(~np.isclose(map_residuals, np.nan, equal_nan = True), 0)
-
-    # make sure coordinates of residuals and data are in the same order
-    map_residuals = map_residuals.rio.reproject_match(map_temp)
-
-    #apply residuals
-    if method == 'data_minus_map':
-        map_with_residuals = map_temp + map_residuals
-    elif method == 'map_minus_data':
-        map_with_residuals = map_temp - map_residuals
-    else:
-        raise NotImplementedError('Method method_residuals not implemented')
-
-    # save to geotiff
-    if output is None:
-        output = path_map.replace('.tif', '_with_residuals.tif')
-    write_geotiff_fromXarray(map_with_residuals, output)
-
-
+#

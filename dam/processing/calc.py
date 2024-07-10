@@ -249,7 +249,7 @@ def combine_raster_data(input: list[str],
     selected_weights = np.where(mask, weights_3d, 0)
     total_weights = np.sum(selected_weights, axis=0)
 
-    weighted_sum = np.nansum(weighted_data, axis = 0)
+    weighted_sum = np.sum(weighted_data, axis = 0)
 
     if statistic == 'sum':
         result = weighted_sum
