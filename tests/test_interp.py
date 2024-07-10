@@ -68,30 +68,5 @@ def main():
                           output=path_map_with_residuals_smoothed.replace('.tif', '_masked.tif'), rm_input=True)
     # ------------------------------------------
 
-
-
-
-
-
-
-
-
-
-    print()
-
-
-
-
-
-
-    # loop on timestamps
-
-    # do the work
-
-
-
-
-
-    
 if __name__ == '__main__':
     main()
