@@ -29,6 +29,7 @@ setup(
         'rioxarray>=0.7.1',
         'unpackqa>=0.1.0',
         'geopandas',
+        'pandas',
         'astropy>=6.1.1'
     ],
     python_requires='>=3.10',
