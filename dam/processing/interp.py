@@ -4,7 +4,7 @@ from sklearn import linear_model
 from typing import Optional
 from ..utils.geo_utils import ltln2val_from_2dDataArray
 from ..utils.io_csv import read_csv, save_csv
-from ..utils.io_geotiff import read_geotiff_asXarray, write_geotiff_fromXarray
+from ..utils.io_geotiff import write_geotiff_fromXarray, read_geotiff
 from ..utils.random_string import random_string
 from ..utils.io_vrt import create_point_vrt
 from ..utils.exec_process import exec_process
@@ -42,9 +42,9 @@ def interp_with_elevation(input: str,
     data = data[name_lat_lon_data_csv[2]].to_numpy()
 
     #load dem and homogeneous regions
-    dem = read_geotiff_asXarray(dem)
+    dem = read_geotiff(dem)
     dem = np.squeeze(dem)
-    homogeneous_regions = read_geotiff_asXarray(homogeneous_regions)
+    homogeneous_regions = read_geotiff(homogeneous_regions)
     homogeneous_regions = np.squeeze(homogeneous_regions)
 
     # get homogeneous regions and elevation for each station
@@ -144,7 +144,7 @@ def interp_idw(input:str,
     data_points = data[name_lat_lon_data_csv[2]].to_numpy()
 
     # load grid
-    grid = read_geotiff_asXarray(grid)
+    grid = read_geotiff(grid)
     grid = np.squeeze(grid)
 
     # create random tags for temp files

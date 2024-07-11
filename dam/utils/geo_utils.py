@@ -1,7 +1,7 @@
 import xarray as xr
 import numpy as np
 from dam.utils.io_csv import read_csv, save_csv
-from dam.utils.io_geotiff import read_geotiff_asXarray, write_geotiff_fromXarray
+from dam.utils.io_geotiff import read_geotiff
 from typing import Optional
 from ..utils.rm import remove_file
 
@@ -57,7 +57,7 @@ def compute_residuals(input: list[str],
     data_points = data[name_lat_lon_data_csv[2]].to_numpy()
 
     # load map
-    map = read_geotiff_asXarray(input_map)
+    map = read_geotiff(input_map)
     map = map.squeeze()  # remove single dimensions, usually time
 
     # extract values in map based on lat and lon
