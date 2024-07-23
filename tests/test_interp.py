@@ -1,8 +1,7 @@
 import pandas as pd
 from dam.processing.interp import interp_with_elevation, interp_idw
 from dam.processing.filter import filter_csv_with_climatology, apply_raster_mask
-from dam.utils.geo_utils import compute_residuals
-from dam.processing.calc import combine_raster_data
+from dam.processing.calc import combine_raster_data, compute_residuals
 from dam.processing.smoothing import gaussian_smoothing
 
 def main():
