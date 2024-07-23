@@ -9,10 +9,10 @@ import unpackqa
 
 from ..utils.io_geotiff import read_geotiff, write_geotiff
 from ..utils.rm import remove_file
+from ..utils.io_csv import read_csv, save_csv
+from ..utils.geo_utils import ltln2val_from_2dDataArray
 
 ### functions useful for filtering data
-# all these functions should be applied to a single band GeoTIFF file (that is the first imput of the function)
-# and they all save the output to a single band GeoTIFF file
 
 def keep_valid_range(input: str,
                      valid_range: tuple[float],
@@ -142,5 +142,52 @@ def apply_raster_mask(input: str,
     
     if rm_mask:
         remove_file(mask)
-    
+
+    return output
+
+# QAQC method based on climatology. This works on a csv file and filters out values that are outside the climatology +- thresholds
+def filter_csv_with_climatology(input: str,
+                     climatology: str,
+                     thresholds: list[float],
+                     name_lat_lon_data_csv: list[str],
+                     output: Optional[str] = None,
+                     rm_input: bool = False) -> str:
+    """
+        Filter a dataframe based on a climatology. The climatology is a raster map and the dataframe is a csv file.
+        The dataframe is filtered based on the climatology +- thresholds.
+        The dataframe is then saved to a new csv file.
+    """
+
+    if output is None:
+        output = input.replace('.csv', '_filtered.csv')
+
+    # load climatology as xarray
+    climatology = read_geotiff(climatology)
+    climatology = np.squeeze(climatology)
+
+    #load data and get lat, lon
+    data = read_csv(input)
+    lat = data[name_lat_lon_data_csv[0]].to_numpy()
+    lon = data[name_lat_lon_data_csv[1]].to_numpy()
+
+    #now get climatology values for the same lat and lon
+    climatology_points = (ltln2val_from_2dDataArray(input_map=climatology, lat=lat, lon=lon, method="nearest"))
+
+    # compute min e max range
+    climatology_points_min = climatology_points - thresholds[0]
+    climatology_points_max = climatology_points + thresholds[1]
+
+    # apply threshold tp dataframe
+    data[data[name_lat_lon_data_csv[2]] < climatology_points_min.values] = np.nan
+    data[data[name_lat_lon_data_csv[2]] > climatology_points_max.values] = np.nan
+    data.set_index(data.columns[0], inplace=True)
+    # remove columns with all NaNs
+    data = data.dropna(axis='rows', how='all')
+
+    # save to csv
+    save_csv(data, output)
+
+    if rm_input:
+        remove_file(input)
+
     return output
