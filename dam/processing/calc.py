@@ -1,4 +1,5 @@
 import numpy as np
+import xarray as xr
 import geopandas as gpd
 import rasterio
 
@@ -10,43 +11,48 @@ from ..utils.io_csv import read_csv, save_csv
 from ..utils.geo_utils import ltln2val_from_2dDataArray
 from ..utils.rm import remove_file
 
-def apply_scale_factor(input: str,
-                       scale_factor: float,
+def apply_scale_factor(input: xr.DataArray,
+                       scale_factor: Optional[float] = None,
                        nodata_value: float = np.nan,
-                       output: Optional[str] = None,
-                       rm_input: bool = False,
-                       destination: Optional[str] = None # destination is kept for backward compatibility
-                       ) -> str:
+                       ) -> xr.DataArray:
     """
     Applies a scale factor to a raster.
     """
 
-    if output is None:
-        if destination is not None:
-            output = destination
-        else:
-            output = input.replace('.tif', '_scaled.tif')
+    data = input
 
-    data = read_geotiff(input, out = 'xarray')
-    current_nodata = data.rio.nodata
-    metadata = data.attrs
+    scale_factor_metadata = data.attrs.get('scale_factor')
+    if scale_factor_metadata is not None:
+        try:
+            scale_factor_metadata = float(scale_factor_metadata)
+        except ValueError:
+            scale_factor_metadata = None
+    
+    if scale_factor is None:
+        if scale_factor_metadata is None:
+            raise ValueError("No scale factor provided or found in metadata")
+        else:
+            scale_factor = scale_factor_metadata
+            data.attrs.pop('scale_factor')
+    else:
+        if scale_factor_metadata is not None:
+            if scale_factor_metadata == scale_factor:
+                data.attrs.pop('scale_factor')
+            else:
+                scale_factor_metadata = scale_factor / scale_factor_metadata
+                data.attrs['scale_factor'] = str(scale_factor_metadata)
+               
+    current_nodata = data.attrs.get('_FillValue')
 
     # apply the scale factor
-    data = data * scale_factor
+    data = data.copy(data = data.values * scale_factor)
 
     # replace the current nodata value (which was scaled) with the new one
     if current_nodata is not None:
         rescaled_nodata = current_nodata * scale_factor
         data = data.where(data != rescaled_nodata, other = nodata_value)
 
-    # data = data.rio.write_nodata(nodata_value)
-    # data.attrs.update(metadata)
-    write_geotiff(data, output, metadata = metadata, nodata_value = nodata_value)
-
-    if rm_input:
-        remove_file(input)
-    
-    return output
+    return data
 
 def summarise_by_shape(input: str,
                        shapes: str,
