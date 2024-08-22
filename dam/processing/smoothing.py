@@ -3,8 +3,11 @@ from typing import Optional
 import numpy as np
 import xarray as xr
 
+from ..utils.register_process import as_DAM_process
+
 # -------------------------------------------------------------------------------------
 # Method to apply gaussian smoothing to a raster map
+@as_DAM_process(input_type = 'xarray', output_type = 'xarray')
 def gaussian_smoothing(input: xr.DataArray,
                        stddev_kernel: float = 2,
                        nodata_value: Optional[float|int] = None,

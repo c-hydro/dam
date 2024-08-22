@@ -1,5 +1,4 @@
 from osgeo import gdal
-import re
 import numpy as np
 import tempfile
 
@@ -7,29 +6,22 @@ from typing import Optional
 
 from ..utils.io_geotiff import write_geotiff, read_geotiff
 from ..utils.rm import remove_file
+from ..utils.register_process import as_DAM_process
 
-def combine_tiles(inputs: list[str],
-                  output: Optional[str] = None,
-                  rm_input: bool = False) -> str:
+@as_DAM_process(input_type = 'file', output_type = 'gdal', input_tiles = True)
+def combine_tiles(inputs: list[str|gdal.Dataset],
+                  num_cpus: Optional[int] = None
+                  )-> gdal.Dataset:
     """
     Mosaic a set of input rasters.
     """
-    inputs.sort()
-    if output is None:
-        # replace any combination of '-tile-0' with ''
-        # where - is either - or _ or nothing
-        s = inputs[0]
-        output = re.sub('[-_]?tile[-_]?\d{1,3}', '', s)
-    
-    out_ds = gdal.Warp('', inputs, format = 'MEM', options=['NUM_THREADS=ALL_CPUS'])
-    write_geotiff(out_ds, output)
 
-    if rm_input:
-        for input in inputs:
-            remove_file(input)
+    if num_cpus is None:
+        num_cpus = 'ALL_CPUS'
 
-    return output
+    out_ds = gdal.Warp('', inputs, format = 'MEM', options=[f'NUM_THREADS={num_cpus}'])
 
+    return out_ds
 
 def split_in_tiles(input: str,
                    tile_size: int | tuple[int, int] = 1024,

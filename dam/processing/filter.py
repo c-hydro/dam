@@ -7,12 +7,14 @@ import re
 
 import unpackqa
 
-from ..utils.io_geotiff import read_geotiff, write_geotiff
+from ..utils.io_geotiff import read_geotiff
 from ..utils.rm import remove_file
 from ..utils.io_csv import read_csv, save_csv
 from ..utils.geo_utils import ltln2val_from_2dDataArray
+from ..utils.register_process import as_DAM_process
 
 ### functions useful for filtering data
+@as_DAM_process(input_type = 'xarray', output_type = 'xarray')
 def keep_valid_range(input: xr.DataArray,
                      valid_range: Optional[tuple[float]] = None,
                      nodata_value: Optional[float|int] = None,
@@ -40,6 +42,7 @@ def keep_valid_range(input: xr.DataArray,
 
     return data
 
+@as_DAM_process(input_type = 'xarray', output_type = 'xarray')
 def apply_binary_mask(input: xr.DataArray,
                       mask: xr.DataArray,
                       keep: dict[str, list[int]],
@@ -88,7 +91,8 @@ def apply_binary_mask(input: xr.DataArray,
         return data, [m for m in unpacked_mask.values()]
     else:
         return data
-    
+
+@as_DAM_process(input_type = 'xarray', output_type = 'xarray')
 def apply_raster_mask(input: xr.DataArray,
                       mask: xr.DataArray,
                       filter_values: list[float|int] = [np.nan],
