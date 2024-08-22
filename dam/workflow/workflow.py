@@ -13,6 +13,7 @@ class DAMWorkflow:
         self.input = input
         self.output = output
         self.processes = []
+        self.break_points = []
 
     def add_process(self, function, output: Optional[Dataset|dict] = None, **kwargs) -> None:
         if len(self.processes) == 0:
@@ -35,13 +36,12 @@ class DAMWorkflow:
                                     args = kwargs,
                                     output = this_output)
 
+        if this_process.break_point:
+            self.break_points.append(len(self.processes))
+
         self.processes.append(this_process)
 
-    def get_times(self, time: TimeRange, **kwargs) -> list[dt.datetime]:
-        return self.input.get_times(time, **kwargs)
-
     def run(self, time: dt.datetime|str|TimeRange, **kwargs) -> None:
-
         if len(self.processes) == 0:
             raise ValueError('No processes have been added to the workflow.')
         elif isinstance(self.processes[-1].output, MemoryDataset):
@@ -49,15 +49,42 @@ class DAMWorkflow:
                 self.processes[-1].output = self.output
             else:
                 raise ValueError('No output dataset has been set.')
+
+        if len(self.break_points) == 0:
+            self._run_processes(self.processes, time, **kwargs)
+        else:
+            # proceed in chuncks: run until the breakpoint, then stop
+            i = 0
+            processes_to_run = []
+            while i < len(self.processes):
+                #collect all processes until the breakpoint
+                if i not in self.break_points:
+                    processes_to_run.append(self.processes[i])
+                else:
+                    # run the processes until the breakpoint
+                    self._run_processes(processes_to_run, time, **kwargs)
+                    # then run the breakpoint by itself
+                    self.processes[i].run(time, **kwargs)
+                    # reset the list of processes
+                    processes_to_run = []
+                i += 1
+            self._run_processes(processes_to_run, time, **kwargs)
+
+    def _run_processes(self, processes, time: dt.datetime, **kwargs) -> None:
+        if len(processes) == 0:
+            return
+
+        input = processes[0].input
         
         if isinstance(time, TimeRange):
-            timesteps = self.get_times(time, **kwargs)
+            timesteps = input.get_times(time, **kwargs)
             for timestep in timesteps:
-                self.run(timestep, **kwargs)
+                self._run_processes(processes, timestep, **kwargs)
+
         elif 'tile' not in kwargs:
-            tiles = self.input.tile_names
+            tiles = input.tile_names
             for tile in tiles:
-                self.run(time, tile = tile, **kwargs)
+                self._run_processes(processes, time, tile = tile, **kwargs)
         else:
-            for process in self.processes:
+            for process in processes:
                 process.run(time, **kwargs)
