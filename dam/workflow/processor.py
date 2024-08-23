@@ -33,21 +33,24 @@ class DAMProcessor:
 
         input_tiles  = function.__dict__.get('input_tiles',False)
         output_tiles = function.__dict__.get('output_tiles',False)
-        self.input_options = {'all_tiles' : input_tiles}
+        self.input_options  = {'all_tiles' : input_tiles}
         self.output_options = {'all_tiles' : output_tiles}
 
-        if output is not None and not input_tiles and not output_tiles:
-            output._template = input._template
-        else:
+        tiling = input_tiles or output_tiles
+        continuous_space = function.__dict__.get('continuous_space', True)
+        if tiling:
+            continuous_space = False
             self.break_point = True
-            
+
+        if output is not None and continuous_space:
+            output._template = input._template
+        
         self.output = output
 
     def __repr__(self):
         return f'DAMProcessor({self.funcname})'
 
     def run(self, time: dt.datetime|str|TimeRange, **kwargs) -> xr.DataArray|list[xr.DataArray]:
-
         input_options = self.input_options
         if 'tile' not in kwargs and not input_options['all_tiles']:
                 tiles = self.input.tile_names
@@ -70,7 +73,9 @@ class DAMProcessor:
         ds_args = {arg_name: arg.get_data(time, **kwargs) for arg_name, arg in self.ds_args.items()}
 
         output_data = self.function(input = input_data, **ds_args)
+
         if self.output is not None:
+            #print(f'{self.funcname} - {time}, {kwargs}')
             self.output.write_data(output_data, time, **kwargs)
 
         return output_data

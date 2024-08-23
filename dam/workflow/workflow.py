@@ -49,6 +49,12 @@ class DAMWorkflow:
             else:
                 raise ValueError('No output dataset has been set.')
         
+        if isinstance(time, TimeRange):
+            timesteps = self.input.get_times(time, **kwargs)
+            for timestep in timesteps:
+                self.run(timestep, **kwargs)
+            return
+
         if len(self.break_points) == 0:
             self._run_processes(self.processes, time, **kwargs)
         else:
