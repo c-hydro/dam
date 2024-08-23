@@ -24,11 +24,12 @@ class DAMWorkflow:
             this_input = previous.output
 
         if output is None:
-            this_output = MemoryDataset(key_pattern = this_input.key_pattern)
+            this_output = MemoryDataset(key_pattern = f'{this_input.key_pattern}')
         elif isinstance(output, dict):
             key_pattern = output.pop('key_pattern', this_input.key_pattern)
             this_output = MemoryDataset(key_pattern, **output)
 
+        this_output.name = f'{this_output.name}_{function.__name__}'
         this_process = DAMProcessor(function = function,
                                     input = this_input,
                                     args = kwargs,
