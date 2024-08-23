@@ -19,7 +19,10 @@ class DAMProcessor:
         static_args = {}
         for arg_name, arg_value in args.items():
             if isinstance(arg_value, Dataset):
-                ds_args[arg_name] = arg_value
+                if not arg_value.is_static:
+                    ds_args[arg_name] = arg_value
+                else:
+                    static_args[arg_name] = arg_value.get_data()
             else:
                 static_args[arg_name] = arg_value
 

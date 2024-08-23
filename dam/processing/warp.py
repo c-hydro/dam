@@ -35,7 +35,7 @@ def match_grid(input: xr.DataArray,
 
     input_da = input
     mask_da = grid
-    
+
     if isinstance(resampling_method, str):
         resampling_method = resampling_method.replace(' ', '')
         for method in _resampling_methods:
@@ -61,6 +61,6 @@ def match_grid(input: xr.DataArray,
 
     nodata_value = nodata_value or input.rio.nodata
     nan_mask = input_da.copy(data = np.isclose(input_da, nodata_value, equal_nan=True).astype(np.int8))
-    regridded_mask = match_grid(nan_mask, mask_da, resampling_method='Average')
+    regridded_mask = match_grid(nan_mask, mask_da, resampling_method='Average', nodata_threshold=1)
 
-    return input_reprojected.where(regridded_mask > nodata_threshold, nodata_value)
+    return input_reprojected.where(regridded_mask < nodata_threshold, nodata_value)
