@@ -19,7 +19,7 @@ def combine_tiles(inputs: list[str|gdal.Dataset],
     if num_cpus is None:
         num_cpus = 'ALL_CPUS'
 
-    out_ds = gdal.Warp('', inputs, format = 'MEM', options=[f'NUM_THREADS={num_cpus}'])
+    out_ds = gdal.Warp('', inputs, format = 'MEM', options=[f'NUM_THREADS={num_cpus}'], multithread=True)
 
     return out_ds
 
