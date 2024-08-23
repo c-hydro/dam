@@ -18,18 +18,16 @@ class DAMWorkflow:
     def add_process(self, function, output: Optional[Dataset|dict] = None, **kwargs) -> None:
         if len(self.processes) == 0:
             previous = None
-            this_input = self.input
+            this_input = self.input.copy()
         else:
             previous = self.processes[-1]
-            this_input = previous.output
+            this_input = previous.output.copy()
 
         if output is None:
             this_output = MemoryDataset(key_pattern = this_input.key_pattern)
         elif isinstance(output, dict):
             key_pattern = output.pop('key_pattern', this_input.key_pattern)
             this_output = MemoryDataset(key_pattern, **output)
-
-        this_output._template = this_input._template
 
         this_process = DAMProcessor(function = function,
                                     input = this_input,
@@ -46,10 +44,10 @@ class DAMWorkflow:
             raise ValueError('No processes have been added to the workflow.')
         elif isinstance(self.processes[-1].output, MemoryDataset):
             if self.output is not None:
-                self.processes[-1].output = self.output
+                self.processes[-1].output = self.output.copy()
             else:
                 raise ValueError('No output dataset has been set.')
-
+        
         if len(self.break_points) == 0:
             self._run_processes(self.processes, time, **kwargs)
         else:
