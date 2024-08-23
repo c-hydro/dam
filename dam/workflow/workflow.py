@@ -18,10 +18,10 @@ class DAMWorkflow:
     def add_process(self, function, output: Optional[Dataset|dict] = None, **kwargs) -> None:
         if len(self.processes) == 0:
             previous = None
-            this_input = self.input.copy()
+            this_input = self.input
         else:
             previous = self.processes[-1]
-            this_input = previous.output.copy()
+            this_input = previous.output
 
         if output is None:
             this_output = MemoryDataset(key_pattern = this_input.key_pattern)
