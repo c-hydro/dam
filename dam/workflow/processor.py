@@ -12,7 +12,8 @@ class DAMProcessor:
                  function: Callable,
                  input: Dataset,
                  args: dict = {},
-                 output: Dataset = None) -> None:
+                 output: Dataset = None,
+                 wf_options: dict = {}) -> None:
         self.break_point = False
 
         ds_args = {}
@@ -33,7 +34,7 @@ class DAMProcessor:
 
         input_tiles  = function.__dict__.get('input_tiles',False)
         output_tiles = function.__dict__.get('output_tiles',False)
-        self.input_options  = {'all_tiles' : input_tiles}
+        self.input_options  = {'all_tiles' : input_tiles, 'break_on_missing_tiles' : wf_options.get('break_on_missing_tiles', False)}
         self.output_options = {'all_tiles' : output_tiles}
 
         tiling = input_tiles or output_tiles
@@ -44,38 +45,39 @@ class DAMProcessor:
 
         if output is not None and continuous_space:
             output._template = input._template
+            output.tile_names = input.tile_names
+        elif input_tiles and not output_tiles:
+            output.tile_names = ['__tile__']
+            output.key_pattern = output.key_pattern.replace('{tile}', '').replace('tile', '')
         
         self.output = output
 
     def __repr__(self):
         return f'DAMProcessor({self.funcname})'
 
-    def run(self, time: dt.datetime|str|TimeRange, **kwargs) -> xr.DataArray|list[xr.DataArray]:
-        input_options = self.input_options
-        if 'tile' not in kwargs and not input_options['all_tiles']:
-                tiles = self.input.tile_names
-                for tile in tiles:
-                    self.run(time, tile = tile, **kwargs)
-
-        # return a list if the input is a TimeRange
-        if isinstance(time, TimeRange):
-            timesteps = self.input.get_times(time, **kwargs)
-            return [self.run(timestep, **kwargs) for timestep in timesteps]
-        
-        # otherwise, return the output of the function
+    def run(self, time: dt.datetime|str, **kwargs) -> xr.DataArray|list[xr.DataArray]:
         if isinstance(time, str):
             time = get_date_from_str(time)
 
-        if input_options['all_tiles']:
-            input_data = (self.input.get_data(time, tile = tile, **kwargs) for tile in self.input.tile_names)
+        input_options = self.input_options
+        if 'tile' not in kwargs:
+            all_tiles = self.input.tile_names if input_options['break_on_missing_tiles'] else self.input.find_tiles(time, **kwargs)
+            if not input_options['all_tiles']:
+                for tile in all_tiles:
+                    self.run(time, tile = tile, **kwargs)
+                return
+            else:
+                input_data = (self.input.get_data(time, tile = tile, **kwargs) for tile in all_tiles)
+                metadata = {'tiles': all_tiles}
         else:
             input_data = self.input.get_data(time, **kwargs)
-        ds_args = {arg_name: arg.get_data(time, **kwargs) for arg_name, arg in self.ds_args.items()}
+            metadata = {}
 
+        ds_args = {arg_name: arg.get_data(time, **kwargs) for arg_name, arg in self.ds_args.items()}
         output_data = self.function(input = input_data, **ds_args)
 
         if self.output is not None:
             #print(f'{self.funcname} - {time}, {kwargs}')
-            self.output.write_data(output_data, time, **kwargs)
+            self.output.write_data(output_data, time, metadata = metadata, **kwargs)
 
         return output_data
