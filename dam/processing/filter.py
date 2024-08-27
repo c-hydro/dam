@@ -95,14 +95,13 @@ def apply_binary_mask(input: xr.DataArray,
 @as_DAM_process(input_type = 'xarray', output_type = 'xarray')
 def apply_raster_mask(input: xr.DataArray,
                       mask: xr.DataArray,
-                      filter_values: list[float|int] = [np.nan],
+                      filter_values: list[float|int] = [],
                       nodata_value: Optional[float|int] = None,
                       ) -> xr.DataArray:
     """
     Apply a raster map to the input. The raster map is a DataArray with the same shape as the input, where each value corresponds to a category.
     The input is masked (set to nodata_value) where the raster map has the filter_values.
     """
-    
     data = input
     mask_data = mask
 
@@ -110,13 +109,14 @@ def apply_raster_mask(input: xr.DataArray,
         nodata_value = data.attrs.get('_FillValue')
 
     # make sure coordinates of the mask and the data are in the same order
+    mask_nodata = mask_data.attrs.get('_FillValue')
     mask_data = mask_data.rio.reproject_match(data)
 
+    filter_values.append(mask_nodata)
     for value in filter_values:
         data = data.where(~np.isclose(mask_data, value, equal_nan=True), other=nodata_value)
 
     data = data.rio.write_nodata(nodata_value)
-
     return data
 
 # QAQC method based on climatology. This works on a csv file and filters out values that are outside the climatology +- thresholds
