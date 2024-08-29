@@ -30,7 +30,8 @@ setup(
         'unpackqa>=0.1.0',
         'geopandas',
         'pandas',
-        'astropy>=6.1.1'
+        'astropy>=6.1.1',
+        'dask'
     ],
     python_requires='>=3.10',
     test_suite='tests',

@@ -1,6 +1,6 @@
-import rioxarray as rxr
 import xarray as xr
 import rasterio
+import dask
 
 from typing import Optional
 import numpy as np
@@ -29,7 +29,7 @@ _resampling_methods = {
 def match_grid(input: xr.DataArray,
                grid: xr.DataArray,
                resampling_method: str|int = 'NearestNeighbour',
-               nodata_threshold: float = 0.99, # sometimes the data is a little bit off, this prevents having data where there should be nodata
+               nodata_threshold: float = 1,
                nodata_value: Optional[float] = None,
                ) -> xr.DataArray:
 
@@ -60,7 +60,17 @@ def match_grid(input: xr.DataArray,
         return input_reprojected
 
     nodata_value = nodata_value or input.rio.nodata
-    nan_mask = input_da.copy(data = np.isclose(input_da, nodata_value, equal_nan=True).astype(np.int8))
-    regridded_mask = match_grid(nan_mask, mask_da, resampling_method='Average', nodata_threshold=1)
 
-    return input_reprojected.where(regridded_mask < nodata_threshold, nodata_value)
+    def process_chunk(chunk, nodata_value):
+        return chunk.copy(data = np.isclose(chunk, nodata_value, equal_nan=True).astype(np.int8))
+    
+    chunk_sizes = [np.ceil(s/10) for s in input_da.shape]
+
+    chunked_input = input_da.chunk(chunk_sizes)
+    result_da     = chunked_input.map_blocks(process_chunk, args = (nodata_value,))
+    nan_mask = result_da.compute()
+
+    nan_mask = nan_mask * 100
+    regridded_mask = nan_mask.rio.reproject_match(mask_da, resampling=rasterio.enums.Resampling(5))
+
+    return input_reprojected.where(regridded_mask < nodata_threshold*100, nodata_value)
