@@ -41,7 +41,7 @@ class DAMWorkflow:
             self.tmp_dir = tempfile.mkdtemp(dir = tmp_dir)
 
     def clean_up(self):
-        if hasattr(self, 'tmp_dir'):
+        if hasattr(self, 'tmp_dir') and os.path.exists(self.tmp_dir):
             shutil.rmtree(self.tmp_dir)
 
     def make_output(self, input: Dataset, output: Optional[Dataset|dict] = None) -> Dataset:
@@ -116,6 +116,10 @@ class DAMWorkflow:
                     self._run_processes(processes_to_run, time, **kwargs)
                     # then run the breakpoint by itself
                     self.processes[i].run(time, **kwargs)
+                    # if this process outputs tiles and this isn't the last process, 
+                    if self.processes[i].output_options['tiles'] and i < len(self.processes) - 1:
+                        # make sure the tile names are passed to the next process
+                        self.processes[i+1].input.tile_names = self.processes[i].output.tile_names
                     # reset the list of processes
                     processes_to_run = []
                 i += 1
