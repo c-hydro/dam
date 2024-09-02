@@ -40,7 +40,7 @@ def as_DAM_process(input_type: str = 'xarray', output_type: str = 'xarray', **kw
         for key, value in kwargs.items():
             setattr(wrapper, key, value)
         # Add the wrapped function to the global list of processes
-        DAM_PROCESSES[func.__name__] = {'function': wrapper}
+        DAM_PROCESSES[func.__name__] = wrapper
 
         return wrapper
     return decorator
