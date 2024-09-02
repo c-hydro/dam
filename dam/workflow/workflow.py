@@ -1,4 +1,5 @@
 from .processor import DAMProcessor
+from ..utils.register_process import DAM_PROCESSES
 
 from ..tools.data import Dataset
 from ..tools.data.memory_dataset import MemoryDataset
@@ -6,6 +7,8 @@ from ..tools.data.local_dataset import LocalDataset
 
 from ..tools.timestepping import TimeRange
 from ..tools.timestepping.time_utils import get_date_from_str
+
+from ..tools.config.options import Options
 
 import datetime as dt
 from typing import Optional
@@ -39,6 +42,26 @@ class DAMWorkflow:
             tmp_dir = self.options.get('tmp_dir', tempfile.gettempdir())
             os.makedirs(tmp_dir, exist_ok = True)
             self.tmp_dir = tempfile.mkdtemp(dir = tmp_dir)
+
+    @classmethod
+    def from_options(cls, options: Options) -> 'DAMWorkflow':
+        input = options.get('input',ignore_case=True)
+        if isinstance(input, Options):
+            input = Dataset.from_options(input)
+        output = options.get('output', None, ignore_case=True)
+        if isinstance(output, Options):
+            output = Dataset.from_options(output)
+        wf_options = options.get('options', None, ignore_case=True)
+
+        wf = cls(input, output, wf_options)
+        processes = options.get(['processes','process_list'], [], ignore_case=True)
+        for process in processes:
+            function_str = process.pop('function')
+            function = DAM_PROCESSES[function_str]
+            output = process.pop('output', None)
+            wf.add_process(function, output, **process)
+
+        return wf
 
     def clean_up(self):
         if hasattr(self, 'tmp_dir') and os.path.exists(self.tmp_dir):
