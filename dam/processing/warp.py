@@ -1,130 +1,76 @@
-from osgeo import gdal, gdalconst
-import tempfile
-
-from rasterio.windows import Window
+import xarray as xr
 import rasterio
+import dask
 
 from typing import Optional
 import numpy as np
-import os
 
-from ..utils.io_geotiff import read_geotiff, write_geotiff
-from ..utils.rm import remove_file
+from ..utils.register_process import as_DAM_process
 
-def match_grid(input: str,
-               grid: str,
-               resampling_method: str = 'NearestNeighbour',
+_resampling_methods = {
+    'NearestNeighbour': 0,
+    'Bilinear': 1,
+    'Cubic': 2,
+    'CubicSpline': 3,
+    'Lanczos': 4,
+    'Average': 5,
+    'Mode': 6,
+    #'Gauss': 7,
+    'Max': 8,
+    'Min': 9,
+    'Med': 10,
+    'Q1': 11,
+    'Q3': 12,
+    'Sum': 13,
+    'RMS': 14
+}
+
+@as_DAM_process(continuous_space = False)
+def match_grid(input: xr.DataArray,
+               grid: xr.DataArray,
+               resampling_method: str|int = 'NearestNeighbour',
+               nodata_threshold: float = 1,
                nodata_value: Optional[float] = None,
-               nodata_threshold: Optional[float] = None,
-               output: Optional[str] = None,
-               rm_input: bool = False) -> str:
-    
-    _resampling_methods = ['NearestNeighbour', 'Bilinear',
-                           'Cubic', 'CubicSpline',
-                           'Lanczos',
-                           'Average', 'Mode',
-                           'Max', 'Min',
-                           'Med', 'Q1', 'Q3']
-    
-    for method in _resampling_methods:
-        if method.lower() == resampling_method.lower():
-            resampling_method = method
-            break
+               ) -> xr.DataArray:
+
+    input_da = input
+    mask_da = grid
+
+    if isinstance(resampling_method, str):
+        resampling_method = resampling_method.replace(' ', '')
+        for method in _resampling_methods:
+            if method.lower() == resampling_method.lower():
+                resampling = rasterio.enums.Resampling(_resampling_methods[method])
+                break
+        else:
+            raise ValueError(f'resampling_method must be one of {_resampling_methods}')
+    elif resampling_method == int(resampling_method) and 0<=resampling_method<=14 and resampling_method != 7:
+        resampling = rasterio.enums.Resampling(resampling_method)
     else:
         raise ValueError(f'resampling_method must be one of {_resampling_methods}')
     
-    if output is None:
-        output = input.replace('.tif', '_regridded.tif')
+    if resampling_method not in ['NearestNeighbour', 'Mode', 0, 6]:
+        input_da = input_da.astype(np.float32)
 
-    # Open the input and reference raster files
-    input_ds = read_geotiff(input, out='gdal')
-    input_transform = input_ds.GetGeoTransform()
-    input_projection = input_ds.GetProjection()
+    input_reprojected = input_da.rio.reproject_match(mask_da, resampling=resampling)
 
-    if nodata_value is not None:
-        input_ds.GetRasterBand(1).SetNoDataValue(nodata_value)
+    if nodata_threshold < 0:
+        nodata_threshold = 0
+    elif nodata_threshold >= 1:
+        return input_reprojected
 
-    in_type = input_ds.GetRasterBand(1).DataType
-    input_ds = None
+    nodata_value = nodata_value or input.rio.nodata
 
-    # Open the reference raster file
-    input_grid = read_geotiff(grid, out='gdal')
-    grid_transform = input_grid.GetGeoTransform()
-    grid_projection = input_grid.GetProjection()
-
-    # Get the resampling method
-    resampling = getattr(gdalconst, f'GRA_{resampling_method}')
-
-    # get the output bounds = the grid bounds
-    # input_bounds = [input_transform[0], input_transform[3], input_transform[0] + input_transform[1] * input_ds.RasterXSize,
-    #                 input_transform[3] + input_transform[5] * input_ds.RasterYSize]
-    output_bounds = [grid_transform[0], grid_transform[3], grid_transform[0] + grid_transform[1] * input_grid.RasterXSize,
-                     grid_transform[3] + grid_transform[5] * input_grid.RasterYSize]
+    def process_chunk(chunk, nodata_value):
+        return chunk.copy(data = np.isclose(chunk, nodata_value, equal_nan=True).astype(np.int8))
     
-    # set the type of the output to the type of the input if resampling is nearest neighbour, otherwise to float32
-    if resampling == gdalconst.GRA_NearestNeighbour:
-        output_type = in_type
-    else:
-        output_type = gdalconst.GDT_Float32
+    chunk_sizes = [np.ceil(s/10) for s in input_da.shape]
 
-    os.makedirs(os.path.dirname(output), exist_ok=True)
-    gdal.Warp(output, input, outputBounds=output_bounds, #outputBoundsSRS = input_projection,
-              srcSRS=input_projection, dstSRS=grid_projection,
-              xRes=grid_transform[1], yRes=grid_transform[5], resampleAlg=resampling,
-              options=['NUM_THREADS=ALL_CPUS'],
-              outputType=output_type,
-              format='GTiff', creationOptions=['COMPRESS=LZW'], multithread=True)
-    
-    if nodata_threshold is not None:
+    chunked_input = input_da.chunk(chunk_sizes)
+    result_da     = chunked_input.map_blocks(process_chunk, args = (nodata_value,))
+    nan_mask = result_da.compute()
 
-        # Define chunk size
-        chunk_size = 5000
+    nan_mask = nan_mask * 100
+    regridded_mask = nan_mask.rio.reproject_match(mask_da, resampling=rasterio.enums.Resampling(5))
 
-        # Open the dataset
-        with rasterio.open(input) as src:
-            # Calculate number of chunks in each dimension
-            n_chunks_x = src.width // chunk_size
-            n_chunks_y = src.height // chunk_size
-
-            # Initialize an empty mask
-            mask = np.empty((src.count, src.height, src.width), dtype=bool)
-
-            # Loop over the chunks
-            for i in range(n_chunks_y):
-                for j in range(n_chunks_x):
-                    # Define the window
-                    window = Window(j*chunk_size, i*chunk_size, chunk_size, chunk_size)
-                    # Read the data for the current chunk
-                    data_chunk = src.read(window=window)
-                    # Create the mask for the current chunk
-                    mask_chunk = np.isclose(data_chunk, nodata_value, equal_nan=True)
-                    # Store the mask chunk in the correct position
-                    mask[:, i*chunk_size:(i+1)*chunk_size, j*chunk_size:(j+1)*chunk_size] = mask_chunk
-
-        # # make a mask of the nodata values in the original input
-        # mask_data = read_geotiff(input, out='xarray')
-        # mask = np.isclose(mask_data.values, nodata_value, equal_nan=True)
-
-        with tempfile.TemporaryDirectory() as tempdir:
-            maskfile = os.path.join(tempdir, 'nan_mask.tif')
-
-            mask = mask.astype(np.uint8)
-            write_geotiff(mask, filename = maskfile, template = input, nodata_value = 254)
-            mask = None
-
-            avg_nan = match_grid(maskfile, grid, 'Average')
-
-            # set the output to nodata where the value of mask is > nodata_threshold
-            mask = read_geotiff(avg_nan, out = 'array')
-            mask = mask > nodata_threshold
-
-            output_array = read_geotiff(output, out = 'array')
-            metadata = read_geotiff(output, out = 'xarray').attrs
-
-            output_array[mask == 1] = nodata_value
-            write_geotiff(data = output_array, filename = output, template = output, metadata=metadata, nodata_value = nodata_value)
-    
-    if rm_input:
-        remove_file(input)
-    
-    return output
+    return input_reprojected.where(regridded_mask < nodata_threshold*100, nodata_value)
