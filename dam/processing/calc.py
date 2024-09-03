@@ -1,4 +1,5 @@
 import numpy as np
+import xarray as xr
 import geopandas as gpd
 import rasterio
 
@@ -6,45 +7,55 @@ from typing import Optional
 import os
 
 from ..utils.io_geotiff import read_geotiff, write_geotiff
+from ..utils.io_csv import read_csv, save_csv
+from ..utils.geo_utils import ltln2val_from_2dDataArray
 from ..utils.rm import remove_file
+from ..utils.register_process import as_DAM_process
 
-def apply_scale_factor(input: str,
-                       scale_factor: float,
+@as_DAM_process(input_type = 'xarray', output_type = 'xarray')
+def apply_scale_factor(input: xr.DataArray,
+                       scale_factor: Optional[float] = None,
                        nodata_value: float = np.nan,
-                       output: Optional[str] = None,
-                       rm_input: bool = False,
-                       destination: Optional[str] = None # destination is kept for backward compatibility
-                       ) -> str:
+                       ) -> xr.DataArray:
     """
     Applies a scale factor to a raster.
     """
+    data = input
 
-    if output is None:
-        if destination is not None:
-            output = destination
+    scale_factor_metadata = data.attrs.get('scale_factor')
+    if scale_factor_metadata is not None:
+        try:
+            scale_factor_metadata = float(scale_factor_metadata)
+        except ValueError:
+            scale_factor_metadata = None
+    
+    if scale_factor is None:
+        if scale_factor_metadata is None:
+            raise ValueError("No scale factor provided or found in metadata")
         else:
-            output = input.replace('.tif', '_scaled.tif')
+            scale_factor = scale_factor_metadata
+            data.attrs.pop('scale_factor')
+    else:
+        if scale_factor_metadata is not None:
+            if scale_factor_metadata == scale_factor or scale_factor_metadata == 1:
+                data.attrs.pop('scale_factor')
+            else:
+                scale_factor_metadata = scale_factor / scale_factor_metadata
+                data.attrs['scale_factor'] = scale_factor_metadata
 
-    data = read_geotiff(input, out = 'xarray')
-    current_nodata = data.rio.nodata
-    metadata = data.attrs
+    current_nodata = data.attrs.get('_FillValue')
 
     # apply the scale factor
-    data = data * scale_factor
+    data = data.copy(data = data.values * scale_factor)
+    data = data.astype(np.float32)
 
     # replace the current nodata value (which was scaled) with the new one
     if current_nodata is not None:
         rescaled_nodata = current_nodata * scale_factor
-        data = data.where(data != rescaled_nodata, other = nodata_value)
+        data = data.where(~np.isclose(data, rescaled_nodata, equal_nan=True), other = nodata_value)
+        data.attrs['_FillValue'] = nodata_value
 
-    # data = data.rio.write_nodata(nodata_value)
-    # data.attrs.update(metadata)
-    write_geotiff(data, output, metadata = metadata, nodata_value = nodata_value)
-
-    if rm_input:
-        remove_file(input)
-    
-    return output
+    return data
 
 def summarise_by_shape(input: str,
                        shapes: str,
@@ -249,7 +260,7 @@ def combine_raster_data(input: list[str],
     selected_weights = np.where(mask, weights_3d, 0)
     total_weights = np.sum(selected_weights, axis=0)
 
-    weighted_sum = np.nansum(weighted_data, axis = 0)
+    weighted_sum = np.sum(weighted_data, axis = 0)
 
     if statistic == 'sum':
         result = weighted_sum
@@ -268,3 +279,60 @@ def combine_raster_data(input: list[str],
             remove_file(i)
 
     return output
+
+# -------------------------------------------------------------------------------------
+# Method to extract residuals from xr.DataArray based on lat-lon and values
+def compute_residuals(input: list[str],
+                      name_lat_lon_data_csv: list[str],
+                      method: Optional[str] = 'nearest',
+                      output: Optional[str] = None,
+                      method_residuals: Optional[str] = 'data_minus_map',
+                      rm_input: bool = False):
+    """
+    Compute residuals between data and map. The input is a csv file with columns for latitude, longitude, and data.
+    Note that the csv file may have any column, but also needs to have latitude, longitude, and data.
+    Names of this csv file can change, but the ORDER of those columns in name_lat_lon_data_in must be the same.
+    Another input is a raster map.
+    Inputs are given as a LIST of two elements: [input_data, input_map].
+    The residuals are computed with a given method, whether as data minus map or map minus data.
+    The residuals are saved to a new csv file.
+    """
+
+    input_data = input[0]
+    input_map = input[1]
+
+    if output is None:
+        output = input_data.replace('.csv', '_residuals.csv')
+
+    # load data
+    data = read_csv(input_data)
+    lat_points = data[name_lat_lon_data_csv[0]].to_numpy()
+    lon_points = data[name_lat_lon_data_csv[1]].to_numpy()
+    data_points = data[name_lat_lon_data_csv[2]].to_numpy()
+
+    # load map
+    map = read_geotiff(input_map)
+    map = map.squeeze()  # remove single dimensions, usually time
+
+    # extract values in map based on lat and lon
+    values_map = ltln2val_from_2dDataArray(input_map=map, lat=lat_points, lon=lon_points, method=method)
+
+    # compute residuals
+    if method_residuals == 'data_minus_map':
+        residuals = data_points - values_map    # data minus map
+    elif method_residuals == 'map_minus_data':
+        residuals = values_map - data_points
+    else:
+        raise NotImplementedError('Method method_residuals not implemented')
+
+    # create new dataframe from data and replace data with residuals
+    data = data.drop(columns=['data'])
+    data['data'] = residuals
+    data.set_index(data.columns[0], inplace=True)
+    save_csv(data, output)
+
+    if rm_input:
+        remove_file(input)
+
+    return output
+# -------------------------------------------------------------------------------------

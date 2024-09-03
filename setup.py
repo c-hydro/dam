@@ -6,7 +6,7 @@ gdalconfig_version = check_output('gdal-config --version', shell=True).decode('u
 
 setup(
     name='dam',
-    version='0.1',
+    version='1.1.0',
     packages=find_packages(),
     description='A package for raster data processing developed at the CIMA Research Foundation',
     author='Luca Trotter',
@@ -28,7 +28,11 @@ setup(
         'xarray>=2023.9.0',
         'rioxarray>=0.7.1',
         'unpackqa>=0.1.0',
-        'geopandas'
+        'geopandas',
+        'pandas',
+        'astropy>=6.1.1',
+        'dask',
+        'boto3'
     ],
     python_requires='>=3.10',
     test_suite='tests',
