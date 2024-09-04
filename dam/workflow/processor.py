@@ -43,14 +43,15 @@ class DAMProcessor:
 
         if output is not None and continuous_space:
             output._template = input._template
-            output.tile_names = input.tile_names
+            if input.tile_names is not None:
+                output.tile_names = input.tile_names
         elif input_tiles and not output_tiles:
             output.tile_names = ['__tile__']
             output.key_pattern = output.key_pattern.replace('{tile}', '').replace('tile', '')
         elif not input_tiles and output_tiles:
             if '{tile}' not in output.key_pattern:
                 output.key_pattern = output.key_pattern.replace('.tif', 'tile{tile}.tif')
-        
+            
         self.output = output
 
     def __repr__(self):
