@@ -110,7 +110,7 @@ class DAMWorkflow:
         if len(self.processes) == 0:
             raise ValueError('No processes have been added to the workflow.')
         elif isinstance(self.processes[-1].output, MemoryDataset) or\
-            (isinstance(self.processes[-1].output, LocalDataset) and self.tmp_dir in self.processes[-1].output.dir):
+            (isinstance(self.processes[-1].output, LocalDataset) and hasattr(self, 'tmp_dir') and self.tmp_dir in self.processes[-1].output.dir):
             if self.output is not None:
                 self.processes[-1].output = self.output.copy()
             else:
