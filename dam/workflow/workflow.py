@@ -65,7 +65,10 @@ class DAMWorkflow:
 
     def clean_up(self):
         if hasattr(self, 'tmp_dir') and os.path.exists(self.tmp_dir):
-            shutil.rmtree(self.tmp_dir)
+            try:
+                shutil.rmtree(self.tmp_dir)
+            except Exception as e:
+                print(f'Error cleaning up temporary directory: {e}')
 
     def make_output(self, input: Dataset, output: Optional[Dataset|dict] = None) -> Dataset:
         if isinstance(output, Dataset):
