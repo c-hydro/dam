@@ -106,8 +106,7 @@ class DAMWorkflow:
             previous = self.processes[-1]
             this_input = previous.output
 
-        this_output = self.make_output(this_input, output)
-        this_output.name = f'{this_output.name}_{function.__name__}'
+        this_output = self.make_output(this_input, output, function.__name__)
         this_process = DAMProcessor(function = function,
                                     input = this_input,
                                     args = kwargs,
