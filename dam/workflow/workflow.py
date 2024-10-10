@@ -44,12 +44,13 @@ class DAMWorkflow:
             self.tmp_dir = tempfile.mkdtemp(dir = tmp_dir)
 
     @classmethod
-    def from_options(cls, options: Options) -> 'DAMWorkflow':
+    def from_options(cls, options: Options|dict) -> 'DAMWorkflow':
+        if isinstance(options, dict): options = Options(options)
         input = options.get('input',ignore_case=True)
-        if isinstance(input, Options):
+        if isinstance(input, dict):
             input = Dataset.from_options(input)
         output = options.get('output', None, ignore_case=True)
-        if isinstance(output, Options):
+        if isinstance(output, dict):
             output = Dataset.from_options(output)
         wf_options = options.get('options', None, ignore_case=True)
 
