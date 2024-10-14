@@ -44,12 +44,13 @@ class DAMWorkflow:
             self.tmp_dir = tempfile.mkdtemp(dir = tmp_dir)
 
     @classmethod
-    def from_options(cls, options: Options) -> 'DAMWorkflow':
+    def from_options(cls, options: Options|dict) -> 'DAMWorkflow':
+        if isinstance(options, dict): options = Options(options)
         input = options.get('input',ignore_case=True)
-        if isinstance(input, Options):
+        if isinstance(input, dict):
             input = Dataset.from_options(input)
         output = options.get('output', None, ignore_case=True)
-        if isinstance(output, Options):
+        if isinstance(output, dict):
             output = Dataset.from_options(output)
         wf_options = options.get('options', None, ignore_case=True)
 
@@ -70,23 +71,33 @@ class DAMWorkflow:
             except Exception as e:
                 print(f'Error cleaning up temporary directory: {e}')
 
-    def make_output(self, input: Dataset, output: Optional[Dataset|dict] = None) -> Dataset:
+    def make_output(self, input: Dataset, output: Optional[Dataset|dict] = None, name = None) -> Dataset:
         if isinstance(output, Dataset):
             return output
         
+        input_pattern = input.key_pattern
+        input_name = input.name
+        if name is not None:
+            extention = os.path.splitext(input_pattern)[1]
+            output_pattern = input_pattern.replace(f'{extention}', f'_{name}{extention}')
+            output_name = f'{input_name}_{name}'
+
         if output is None:
-            key_pattern = input.key_pattern
+            output_pattern = output_pattern
         elif isinstance(output, dict):
-            key_pattern = output.get('key_pattern', input.key_pattern)
+            output_pattern = output.get('key_pattern', output_pattern)
         else:
             raise ValueError('Output must be a Dataset or a dictionary.')
         
         output_type = self.options['intermediate_output']
         if output_type == 'Mem':
-            return MemoryDataset(key_pattern = input.key_pattern)
+            output_ds = MemoryDataset(key_pattern = output_pattern)
         elif output_type == 'Tmp':
-            filename = os.path.basename(key_pattern)
-            return LocalDataset(path = self.tmp_dir, filename = filename)
+            filename = os.path.basename(output_pattern)
+            output_ds = LocalDataset(path = self.tmp_dir, filename = filename)
+
+        output_ds.name = output_name
+        return output_ds
 
     def add_process(self, function, output: Optional[Dataset|dict] = None, **kwargs) -> None:
         if len(self.processes) == 0:
@@ -96,8 +107,7 @@ class DAMWorkflow:
             previous = self.processes[-1]
             this_input = previous.output
 
-        this_output = self.make_output(this_input, output)
-        this_output.name = f'{this_output.name}_{function.__name__}'
+        this_output = self.make_output(this_input, output, function.__name__)
         this_process = DAMProcessor(function = function,
                                     input = this_input,
                                     args = kwargs,
