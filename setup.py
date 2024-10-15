@@ -32,7 +32,9 @@ setup(
         'pandas',
         'astropy>=6.1.1',
         'dask',
-        'boto3'
+        'boto3',
+        'paramiko',
+        'scipy'
     ],
     python_requires='>=3.10',
     test_suite='tests',
