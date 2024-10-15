@@ -130,7 +130,14 @@ class DAMWorkflow:
                 raise ValueError('No output dataset has been set.')
 
         if isinstance(time, TimeRange):
-            timesteps = self.input.get_times(time, **kwargs)
+            timestamps = self.input.get_times(time, **kwargs)
+
+            timestep = self.input.estimate_timestep()
+            if timestep is not None:
+                timesteps = [timestep.from_date(t) for t in timestamps]
+            else:
+                timesteps = timestamps
+                
             for timestep in timesteps:
                 self.run(timestep, **kwargs)
             return
