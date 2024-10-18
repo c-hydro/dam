@@ -120,6 +120,7 @@ class DAMWorkflow:
         self.processes.append(this_process)
 
     def run(self, time: dt.datetime|str|TimeRange, **kwargs) -> None:
+
         if len(self.processes) == 0:
             raise ValueError('No processes have been added to the workflow.')
         elif isinstance(self.processes[-1].output, MemoryDataset) or\
@@ -129,19 +130,30 @@ class DAMWorkflow:
             else:
                 raise ValueError('No output dataset has been set.')
 
-        if isinstance(time, TimeRange):
+        if hasattr(time, 'start') and hasattr(time, 'end'):
             timestamps = self.input.get_times(time, **kwargs)
+
+            if self.input.time_signature == 'end+1':
+                timestamps = [t - dt.timedelta(days = 1) for t in timestamps]
 
             timestep = self.input.estimate_timestep()
             if timestep is not None:
                 timesteps = [timestep.from_date(t) for t in timestamps]
             else:
                 timesteps = timestamps
-                
-            for timestep in timesteps:
-                self.run(timestep, **kwargs)
-            return
-        elif isinstance(time, str):
+            
+            if len(timesteps) == 0:
+                return
+            else:
+                for timestep in timesteps:
+                    self.run_single_ts(timestep, **kwargs)
+                return
+        else:
+            self.run_single_ts(time, **kwargs)
+    
+    def run_single_ts(self, time: dt.datetime|str|TimeRange, **kwargs) -> None:
+        
+        if isinstance(time, str):
             time = get_date_from_str(time)
 
         if len(self.break_points) == 0:
@@ -177,13 +189,7 @@ class DAMWorkflow:
             return
 
         input = processes[0].input
-        
-        if isinstance(time, TimeRange):
-            timesteps = input.get_times(time, **kwargs)
-            for timestep in timesteps:
-                self._run_processes(processes, timestep, **kwargs)
-
-        elif 'tile' not in kwargs:
+        if 'tile' not in kwargs:
             all_tiles = input.tile_names if self.options['break_on_missing_tiles'] else input.find_tiles(time, **kwargs)
             for tile in all_tiles:
                 self._run_processes(processes, time, tile = tile, **kwargs)
