@@ -191,6 +191,8 @@ class DAMWorkflow:
         input = processes[0].input
         if 'tile' not in kwargs:
             all_tiles = input.tile_names if self.options['break_on_missing_tiles'] else input.find_tiles(time, **kwargs)
+            if len(all_tiles) == 0:
+                all_tiles = ['__tile__']
             for tile in all_tiles:
                 self._run_processes(processes, time, tile = tile, **kwargs)
 
