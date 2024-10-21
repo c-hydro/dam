@@ -38,11 +38,21 @@ def match_grid(input: xr.DataArray,
                ) -> xr.DataArray:
 
     if engine == 'xarray':
-        return _match_grid_xarray(input, grid, resampling_method, nodata_threshold, nodata_value)
+        regridded =_match_grid_xarray(input, grid, resampling_method, nodata_threshold, nodata_value)
     elif engine == 'gdal': # this is for compatibility with a previous version. It is not recommended to use gdal
-        return _match_grid_gdal(input, grid, resampling_method, nodata_threshold, nodata_value)
+        regridded = _match_grid_gdal(input, grid, resampling_method, nodata_threshold, nodata_value)
     else:
         raise ValueError('engine must be one of [xarray, gdal]')
+    
+    # ensure that the y coordinates are descending
+    y_dim = regridded.rio.y_dim
+    regridded = regridded.sortby(y_dim, ascending=False)
+
+    # and order the dimentions to match the grid
+    dim_names = grid.dims
+    regridded = regridded.transpose(*dim_names)
+
+    return regridded
 
 def _match_grid_xarray(input: xr.DataArray,
                           grid: xr.DataArray,
@@ -70,7 +80,6 @@ def _match_grid_xarray(input: xr.DataArray,
         input_da = input_da.astype(np.float32)
 
     input_reprojected = input_da.rio.reproject_match(mask_da, resampling=resampling)
-
     if nodata_threshold < 0:
         nodata_threshold = 0
     elif nodata_threshold >= 1:
