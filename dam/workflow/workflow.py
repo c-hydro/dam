@@ -44,12 +44,13 @@ class DAMWorkflow:
             self.tmp_dir = tempfile.mkdtemp(dir = tmp_dir)
 
     @classmethod
-    def from_options(cls, options: Options) -> 'DAMWorkflow':
+    def from_options(cls, options: Options|dict) -> 'DAMWorkflow':
+        if isinstance(options, dict): options = Options(options)
         input = options.get('input',ignore_case=True)
-        if isinstance(input, Options):
+        if isinstance(input, dict):
             input = Dataset.from_options(input)
         output = options.get('output', None, ignore_case=True)
-        if isinstance(output, Options):
+        if isinstance(output, dict):
             output = Dataset.from_options(output)
         wf_options = options.get('options', None, ignore_case=True)
 
@@ -65,25 +66,38 @@ class DAMWorkflow:
 
     def clean_up(self):
         if hasattr(self, 'tmp_dir') and os.path.exists(self.tmp_dir):
-            shutil.rmtree(self.tmp_dir)
+            try:
+                shutil.rmtree(self.tmp_dir)
+            except Exception as e:
+                print(f'Error cleaning up temporary directory: {e}')
 
-    def make_output(self, input: Dataset, output: Optional[Dataset|dict] = None) -> Dataset:
+    def make_output(self, input: Dataset, output: Optional[Dataset|dict] = None, name = None) -> Dataset:
         if isinstance(output, Dataset):
             return output
         
+        input_pattern = input.key_pattern
+        input_name = input.name
+        if name is not None:
+            extention = os.path.splitext(input_pattern)[1]
+            output_pattern = input_pattern.replace(f'{extention}', f'_{name}{extention}')
+            output_name = f'{input_name}_{name}'
+
         if output is None:
-            key_pattern = input.key_pattern
+            output_pattern = output_pattern
         elif isinstance(output, dict):
-            key_pattern = output.get('key_pattern', input.key_pattern)
+            output_pattern = output.get('key_pattern', output_pattern)
         else:
             raise ValueError('Output must be a Dataset or a dictionary.')
         
         output_type = self.options['intermediate_output']
         if output_type == 'Mem':
-            return MemoryDataset(key_pattern = input.key_pattern)
+            output_ds = MemoryDataset(key_pattern = output_pattern)
         elif output_type == 'Tmp':
-            filename = os.path.basename(key_pattern)
-            return LocalDataset(path = self.tmp_dir, filename = filename)
+            filename = os.path.basename(output_pattern)
+            output_ds = LocalDataset(path = self.tmp_dir, filename = filename)
+
+        output_ds.name = output_name
+        return output_ds
 
     def add_process(self, function, output: Optional[Dataset|dict] = None, **kwargs) -> None:
         if len(self.processes) == 0:
@@ -93,8 +107,7 @@ class DAMWorkflow:
             previous = self.processes[-1]
             this_input = previous.output
 
-        this_output = self.make_output(this_input, output)
-        this_output.name = f'{this_output.name}_{function.__name__}'
+        this_output = self.make_output(this_input, output, function.__name__)
         this_process = DAMProcessor(function = function,
                                     input = this_input,
                                     args = kwargs,
@@ -107,6 +120,7 @@ class DAMWorkflow:
         self.processes.append(this_process)
 
     def run(self, time: dt.datetime|str|TimeRange, **kwargs) -> None:
+
         if len(self.processes) == 0:
             raise ValueError('No processes have been added to the workflow.')
         elif isinstance(self.processes[-1].output, MemoryDataset) or\
@@ -116,12 +130,30 @@ class DAMWorkflow:
             else:
                 raise ValueError('No output dataset has been set.')
 
-        if isinstance(time, TimeRange):
-            timesteps = self.input.get_times(time, **kwargs)
-            for timestep in timesteps:
-                self.run(timestep, **kwargs)
-            return
-        elif isinstance(time, str):
+        if hasattr(time, 'start') and hasattr(time, 'end'):
+            timestamps = self.input.get_times(time, **kwargs)
+
+            if self.input.time_signature == 'end+1':
+                timestamps = [t - dt.timedelta(days = 1) for t in timestamps]
+
+            timestep = self.input.estimate_timestep()
+            if timestep is not None:
+                timesteps = [timestep.from_date(t) for t in timestamps]
+            else:
+                timesteps = timestamps
+            
+            if len(timesteps) == 0:
+                return
+            else:
+                for timestep in timesteps:
+                    self.run_single_ts(timestep, **kwargs)
+                return
+        else:
+            self.run_single_ts(time, **kwargs)
+    
+    def run_single_ts(self, time: dt.datetime|str|TimeRange, **kwargs) -> None:
+        
+        if isinstance(time, str):
             time = get_date_from_str(time)
 
         if len(self.break_points) == 0:
@@ -157,14 +189,10 @@ class DAMWorkflow:
             return
 
         input = processes[0].input
-        
-        if isinstance(time, TimeRange):
-            timesteps = input.get_times(time, **kwargs)
-            for timestep in timesteps:
-                self._run_processes(processes, timestep, **kwargs)
-
-        elif 'tile' not in kwargs:
+        if 'tile' not in kwargs:
             all_tiles = input.tile_names if self.options['break_on_missing_tiles'] else input.find_tiles(time, **kwargs)
+            if len(all_tiles) == 0:
+                all_tiles = ['__tile__']
             for tile in all_tiles:
                 self._run_processes(processes, time, tile = tile, **kwargs)
 
