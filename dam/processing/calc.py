@@ -34,15 +34,8 @@ def apply_scale_factor(input: xr.DataArray,
             raise ValueError("No scale factor provided or found in metadata")
         else:
             scale_factor = scale_factor_metadata
-            data.attrs.pop('scale_factor')
-    else:
-        if scale_factor_metadata is not None:
-            if scale_factor_metadata == scale_factor or scale_factor_metadata == 1:
-                data.attrs.pop('scale_factor')
-            else:
-                scale_factor_metadata = scale_factor / scale_factor_metadata
-                data.attrs['scale_factor'] = scale_factor_metadata
 
+    data.attrs.pop('scale_factor')
     current_nodata = data.attrs.get('_FillValue')
 
     # apply the scale factor
@@ -52,7 +45,7 @@ def apply_scale_factor(input: xr.DataArray,
     # replace the current nodata value (which was scaled) with the new one
     if current_nodata is not None:
         rescaled_nodata = current_nodata * scale_factor
-        data = data.where(~np.isclose(data, rescaled_nodata, equal_nan=True), other = nodata_value)
+        data = data.where(~np.isclose(data, rescaled_nodata, equal_nan=True), other = np.nan)
         data.attrs['_FillValue'] = nodata_value
 
     return data
