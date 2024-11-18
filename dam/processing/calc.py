@@ -28,14 +28,21 @@ def apply_scale_factor(input: xr.DataArray,
             scale_factor_metadata = float(scale_factor_metadata)
         except ValueError:
             scale_factor_metadata = None
-    
+
     if scale_factor is None:
         if scale_factor_metadata is None:
             raise ValueError("No scale factor provided or found in metadata")
         else:
             scale_factor = scale_factor_metadata
+            data.attrs.pop('scale_factor')
+    else:
+        if scale_factor_metadata is not None:
+            if scale_factor_metadata == scale_factor or scale_factor_metadata == 1:
+                data.attrs.pop('scale_factor')
+            else:
+                scale_factor_metadata = scale_factor / scale_factor_metadata
+                data.attrs['scale_factor'] = scale_factor_metadata
 
-    data.attrs.pop('scale_factor')
     current_nodata = data.attrs.get('_FillValue')
 
     # apply the scale factor
@@ -45,7 +52,7 @@ def apply_scale_factor(input: xr.DataArray,
     # replace the current nodata value (which was scaled) with the new one
     if current_nodata is not None:
         rescaled_nodata = current_nodata * scale_factor
-        data = data.where(~np.isclose(data, rescaled_nodata, equal_nan=True), other = np.nan)
+        data = data.where(~np.isclose(data, rescaled_nodata, equal_nan=True), other = nodata_value)
         data.attrs['_FillValue'] = nodata_value
 
     return data
@@ -246,7 +253,6 @@ def combine_raster_data(input: list[str],
         databrick_nan = np.where(np.isclose(databrick, nodata_value, equal_nan=True), np.nan, databrick)
 
     weighted_data = np.einsum('i,ijk->ijk', weights, databrick_nan)
-    mask = np.isfinite(weighted_data)
     mask = np.isfinite(weighted_data) # <- this is a mask of all the nans in the weighted data
     weights = np.array(weights)
     weights_3d = np.broadcast_to(weights[:, np.newaxis, np.newaxis], weighted_data.shape)
@@ -328,4 +334,91 @@ def compute_residuals(input: list[str],
         remove_file(input)
 
     return output
+
 # -------------------------------------------------------------------------------------
+# Method to classifies a raster file based on specified thresholds and assigns class values
+@as_DAM_process(input_type = 'xarray', output_type = 'xarray')
+def classify_raster(input: xr.DataArray,
+                    thresholds: list[float],
+                    classes: Optional[list[int]] = None,
+                    side: str = "left",
+                    normalize: bool = False) -> xr.DataArray:
+    """
+    Classifies a raster based on thresholds using np.digitize. Classes are optional.
+
+    Parameters:
+    - input (xr.DataArray): Input raster to classify.
+    - thresholds (list): List of threshold values (breaks).
+    - classes (list, optional): List of class values corresponding to thresholds. Defaults to [0, 1, ..., n].
+    - side (str): "left" (default) to classify using `>= threshold`, "right" to use `< threshold`.
+
+    Returns:
+    - xr.DataArray: Classified raster.
+    """
+    if side.lower() not in ["left", "right"]:
+        raise ValueError("Parameter 'side' must be either 'left' or 'right'.")
+
+    # Default classes to [0, 1, 2, ..., len(thresholds)]
+    if classes is None:
+        classes = list(range(len(thresholds) + 1))
+
+    if len(classes) != len(thresholds) + 1:
+        raise ValueError("The number of classes must be equal to the number of thresholds + 1.")
+
+    # Perform classification using np.digitize
+    classified_values = np.digitize(input.values, thresholds, right=(side.lower() == "right"))
+
+    # Map digitized values to the provided or default classes
+    classified_map = np.array(classes, dtype=int)[classified_values]
+
+    # Convert back to xarray.DataArray with the same coordinates and dimensions
+    output = xr.DataArray(classified_map,
+                          dims=input.dims,
+                          coords=input.coords,
+                          name="classified_map")
+    return output
+
+# -------------------------------------------------------------------------------------
+# Method to normalize a raster file
+@as_DAM_process(input_type = 'xarray', output_type = 'xarray')
+def normalize_raster(input: xr.DataArray,
+                     method: str = "minmax",
+                     min_value: Optional[float] = None,
+                     max_value: Optional[float] = None,
+                     ) -> xr.DataArray:
+    """
+    Normalizes a raster using specified method.
+
+    Parameters:
+    - input (xr.DataArray): Input raster to normalize.
+    - method (str): Normalization method to use. Options: "minmax", "meanstd".
+    - min_value (float, optional): Minimum value for normalization. Defaults to None.
+    - max_value (float, optional): Maximum value for normalization. Defaults to None.
+
+    Returns:
+    - xr.DataArray: Normalized raster.
+    """
+    if method.lower() not in ["minmax", "meanstd"]:
+        raise ValueError("Parameter 'method' must be either 'minmax' or 'meanstd'.")
+
+    # Normalize using Min-Max scaling
+    if method.lower() == "minmax":
+        if min_value is None:
+            min_value = input.min().item()
+        if max_value is None:
+            max_value = input.max().item()
+        if min_value == max_value:
+            raise ValueError("min_value and max_value cannot be equal.")
+        normalized_values = (input - min_value) / (max_value - min_value)
+
+
+    # Normalize using Mean-Std scaling
+    elif method == "meanstd":
+        normalized_values = (input - input.mean()) / input.std()
+
+    # Convert back to xarray.DataArray with the same coordinates and dimensions
+    output = xr.DataArray(normalized_values,
+                          dims=input.dims,
+                          coords=input.coords,
+                          name="normalized_map")
+    return output
