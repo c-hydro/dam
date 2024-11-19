@@ -50,165 +50,82 @@ def apply_scale_factor(input: xr.DataArray,
 
     return data
 
-def summarise_by_shape(input: str,
-                       shapes: str,
+@as_DAM_process()
+def summarise_by_shape(input: xr.DataArray,
+                       shapes: gpd.GeoDataFrame,
                        statistic: str = 'mean',
-                       breaks: Optional[list[float]] = None,
-                       percentages: Optional[bool] = False,
-                       threshold: Optional[int] = None,
-                       round: Optional[int] = None,
-                       name: Optional[str] = None,
-                       nodata_value: float = np.nan,
-                       output: Optional[str] = None,
-                       rm_input: bool = False,
-                       rm_shapes: bool = False
-                       ) -> str:
+                       thr_quantile: Optional[float] = None,
+                       thr_value: Optional[float] = None,
+                       thr_side: str = 'above',
+                       all_touched: bool = False,
+                       column_name: Optional[str] = None,
+                       ) -> gpd.GeoDataFrame:
     """
     Summarise a raster by a shapefile.
     """
 
-    if output is None:
-        output = input.replace('.tif', f'_{statistic}.csv')
+    # get no_data value
+    nodata_value = input.GetRasterBand(1).GetNoDataValue()
 
-    # Open the shapefile
-    gdf = gpd.read_file(shapes)
+    # Loop over each geometry in the GeoDataFrame
+    for geom in shapes.geometry:
+        # Mask the raster with the current geometry
+        out_image = input.rio.clip([geom],
+                                   all_touched=all_touched,
+                                   nodata=nodata_value)
 
-    # Open the raster file
-    with rasterio.open(input) as src:
-        # Initialize an empty list to store the statistics
-        stats = []
-        if breaks is not None and percentages:
-            # Initialize an empty list to store the percentages
-            df_percentages = []
+        # we only care about the data, not the shape
+        out_data = out_image.values.flatten()
 
-            if threshold is not None:
-                thresholds = []
+        # remove the nodata values
+        out_data = out_data[~np.isclose(out_data, nodata_value, equal_nan=True)]
 
-        # Loop over each geometry in the GeoDataFrame
-        for geom in gdf.geometry:
-            # Mask the raster with the current geometry
-            out_image, out_transform = rasterio.mask.mask(src,
-                                                          [geom],
-                                                          crop=True,
-                                                          all_touched=True,
-                                                          nodata=nodata_value)
-
-            # we only care about the data, not the shape
-            out_data = out_image.flatten()
-
-            # remove the nodata values
-            out_data = out_data[~np.isclose(out_data, nodata_value, equal_nan=True)]
-
-            if len(out_data) == 0:
-                stats.append(nodata_value)
-                if breaks is not None and percentages:
-                    percentages.append([nodata_value] * (len(breaks) + 1))
-                continue
-
-            # if we want the mode, we assume that the data is either integer or should be classified
-            if statistic == 'mode':
-                if breaks is not None:
-                    out_data = np.digitize(out_data, breaks)
-
-                # get the most frequent value
-                stat = np.bincount(out_data).argmax()
-
-            elif statistic == 'mean':
-                stat = np.mean(out_data)
-
-            elif statistic == 'median':
-                stat = np.median(out_data)
-
-                if breaks is not None:
-                    stat = np.digitize(stat, breaks)
-
+        if thr_quantile is not None:
+            if thr_side.lower() == 'above':
+                # filter the data above the threshold
+                data = out_data[out_data > np.quantile(out_data, thr_quantile)]
+            elif thr_side.lower() == 'below':
+                # filter the data below the threshold
+                data = out_data[out_data < np.quantile(out_data, thr_quantile)]
             else:
-                raise ValueError('The statistic must be either "mean", "median" or "mode".')
-
-            if round is not None:
-                stat = np.round(stat, round)
-
-            # Append the statistic to the list
-            stats.append(stat)
-
-            if breaks is not None and percentages:
-                # Get the histogram of the values
-                hist, _ = np.histogram(out_data, bins=[-np.inf] + breaks + [np.inf])
-
-                # Turn the histogram into percentages of the total rounded to 0 decimals
-                hist_percentages = np.round(hist / hist.sum() * 100, 0)
-
-                if threshold is not None:
-                     # Start from the highest class and move to the lower classes
-                    total_percentage = 0
-                    for i in range(len(hist_percentages) - 1, -1, -1):
-                        total_percentage += hist_percentages[i]
-                        if total_percentage > threshold:
-                            # Record the current class and break the loop
-                            thresholds.append(i)
-                            break
-
-                # Add the histogram percentages to the list
-                df_percentages.append(hist_percentages)
-
-    # set the name of the new field
-    if name is None:
-        name = statistic + '_' + os.path.basename(input).split('.')[0]
-
-    # option 1: add the statistics to the GeoDataFrame and save as a shapefile
-    # note that the legend will be the same as the breaks, but it won't show in the file.
-    if output.endswith('.shp'):
-        if percentages:
-            # turn the list of lists into a numpy array
-            df_percentages = np.array(df_percentages)
-            for i in range(len(breaks) + 1):
-                gdf[f'class_{i}'] = df_percentages[:, i]
-
-            if threshold is not None:
-                gdf[name] = thresholds
+                raise ValueError('The threshold side must be either "above" or "below".')
+        elif thr_value is not None:
+            if thr_side.lower() == 'above':
+                # filter the data above the threshold
+                data = out_data[out_data > thr_value]
+            elif thr_side.lower() == 'below':
+                # filter the data below the threshold
+                data = out_data[out_data < thr_value]
+            else:
+                raise ValueError('The threshold side must be either "above" or "below".')
         else:
-            if threshold is not None:
-                gdf[name] = stats
+            data = out_data
 
-        gdf.to_file(output)
+        if statistic == 'mean':
+            stat = np.mean(data)
+        elif statistic == 'median':
+            stat = np.median(data)
+        elif statistic == 'mode':
+            stat = np.bincount(data).argmax()
+        elif statistic == 'sum':
+            stat = np.sum(data)
+        elif statistic == 'quantile':
+            if thr_quantile is None:
+                raise ValueError('The threshold quantile must be provided for the "quantile" statistic.')
+            stat = np.quantile(data, thr_quantile)
+        else:
+            raise ValueError('The statistic must be either "mean", "median", "mode", "sum" or "quantile".')
 
-    # option 2: save the statistics as a csv
-    elif output.endswith('.csv'):
-        # remove the geometry column
-        gdf = gdf.drop(columns='geometry')
+        if column_name is None:
+            # if both threshold quantile and value are not provided
+            if thr_quantile is None and thr_value is None:
+                column_name = f'{statistic}'
+            else:
+                column_name = f'{statistic}_q{thr_quantile}' if thr_quantile is not None else f'{statistic}_val{thr_value}'
 
-        gdf[name] = stats
+        shapes.loc[shapes.geometry == geom, column_name] = stat
 
-        # create a legend from the breaks
-        if breaks is not None:
-            legend = ["-inf : " + str(breaks[0])]
-            legend.extend([f'{breaks[i]} : {breaks[i+1]}' for i in range(len(breaks)-1)])
-            legend.append(str(breaks[-1]) + ' : inf')
-
-            stats_legend = []
-            for i in range(len(stats)):
-                if np.isnan(stats[i]) or stats[i] == nodata_value:
-                    stats_legend.append('nodata')
-                else:
-                    stats_legend.append(legend[int(stats[i])])
-
-            gdf[name + '_legend'] = stats_legend
-
-        if breaks is not None and percentages:
-            # turn the list of lists into a numpy array
-            df_percentages = np.array(df_percentages)
-            for i in range(len(breaks) + 1):
-                gdf[f'class_{i}'] = df_percentages[:, i]
-
-        gdf.to_csv(output)
-
-    if rm_input:
-        remove_file(input)
-
-    if rm_shapes:
-        remove_file(shapes)
-
-    return output
+    return shapes
 
 def combine_raster_data(input: list[str],
                         statistic: str = 'mean',
