@@ -65,14 +65,13 @@ def summarise_by_shape(input: xr.DataArray,
     """
 
     # get no_data value
-    nodata_value = input.GetRasterBand(1).GetNoDataValue()
+    nodata_value = input.attrs.get('_FillValue', np.nan)
 
     # Loop over each geometry in the GeoDataFrame
     for geom in shapes.geometry:
         # Mask the raster with the current geometry
         out_image = input.rio.clip([geom],
-                                   all_touched=all_touched,
-                                   nodata=nodata_value)
+                                   all_touched=all_touched)
 
         # we only care about the data, not the shape
         out_data = out_image.values.flatten()
@@ -81,12 +80,16 @@ def summarise_by_shape(input: xr.DataArray,
         out_data = out_data[~np.isclose(out_data, nodata_value, equal_nan=True)]
 
         if thr_quantile is not None:
+            # Sort the out_data array
+            sorted_data = np.sort(out_data)
+            # Calculate the index for the quantile threshold
+            quantile_position = int(thr_quantile * len(sorted_data))
             if thr_side.lower() == 'above':
                 # filter the data above the threshold
-                data = out_data[out_data > np.quantile(out_data, thr_quantile)]
+                data = sorted_data[quantile_position:]
             elif thr_side.lower() == 'below':
                 # filter the data below the threshold
-                data = out_data[out_data < np.quantile(out_data, thr_quantile)]
+                data = sorted_data[:quantile_position]
             else:
                 raise ValueError('The threshold side must be either "above" or "below".')
         elif thr_value is not None:
@@ -124,6 +127,52 @@ def summarise_by_shape(input: xr.DataArray,
                 column_name = f'{statistic}_q{thr_quantile}' if thr_quantile is not None else f'{statistic}_val{thr_value}'
 
         shapes.loc[shapes.geometry == geom, column_name] = stat
+
+    return shapes
+
+@as_DAM_process()
+def get_percentages_by_shape(input: xr.DataArray,
+                      shapes: gpd.GeoDataFrame,
+                      classes: list[int],
+                      ) -> gpd.GeoDataFrame:
+    """
+    Classify a raster by a shapefile.
+    """
+    # get no_data value
+    nodata_value = input.attrs.get('_FillValue', np.nan)
+
+    # Initialize an empty list to store the results
+    results = []
+
+    # Calculate the bin edges dynamically
+    bin_edges = np.append(classes, classes[-1] + 1)
+
+    # Loop over each geometry in the GeoDataFrame
+    for geom in shapes.geometry:
+        # Mask the raster with the current geometry
+        out_image = input.rio.clip([geom])
+
+        # we only care about the data, not the shape
+        out_data = out_image.values.flatten()
+
+        # remove the nodata values
+        out_data = out_data[~np.isclose(out_data, nodata_value, equal_nan=True)]
+
+        # get the values in the classes
+        hist, _ = np.histogram(out_data, bins=bin_edges)
+
+        # Turn the histogram into percentages of the total rounded to 0 decimals
+        hist_percentages = np.round(hist / hist.sum() * 100, 0)
+
+        # Add the histogram percentages to the list
+        results.append(hist_percentages)
+
+    # Turn the list of lists into a numpy array
+    results = np.array(results)
+    for i in range(len(classes)):
+        # Define the column name
+        column_name = f'class_{classes[i]}'
+        shapes[column_name] = results[:, i]
 
     return shapes
 
