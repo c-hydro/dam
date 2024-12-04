@@ -166,7 +166,7 @@ def get_percentages_by_shape(input: xr.DataArray,
 
         # we only care about the data, not the shape
         out_data = out_image.values.flatten()
-
+        
         # check if all values are nodata
         if np.all(np.isclose(out_data, nodata_value, equal_nan=True)):
             # Add a row of zeros to the results
@@ -183,6 +183,7 @@ def get_percentages_by_shape(input: xr.DataArray,
 
             # Add the histogram percentages to the list
             results.append(hist_percentages)
+
 
     # Turn the list of lists into a numpy array
     results = np.array(results)
