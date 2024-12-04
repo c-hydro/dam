@@ -6,7 +6,7 @@ gdalconfig_version = check_output('gdal-config --version', shell=True).decode('u
 
 setup(
     name='dam',
-    version='1.1.2',
+    version='1.1.4',
     packages=find_packages(),
     description='A package for raster data processing developed at the CIMA Research Foundation',
     author='Luca Trotter',
