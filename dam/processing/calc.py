@@ -76,48 +76,60 @@ def summarise_by_shape(input: xr.DataArray,
         # we only care about the data, not the shape
         out_data = out_image.values.flatten()
 
-        # remove the nodata values
-        out_data = out_data[~np.isclose(out_data, nodata_value, equal_nan=True)]
-
-        if thr_quantile is not None:
-            # Sort the out_data array
-            sorted_data = np.sort(out_data)
-            # Calculate the index for the quantile threshold
-            quantile_position = int(thr_quantile * len(sorted_data))
-            if thr_side.lower() == 'above':
-                # filter the data above the threshold
-                data = sorted_data[quantile_position:]
-            elif thr_side.lower() == 'below':
-                # filter the data below the threshold
-                data = sorted_data[:quantile_position]
+        # check if all values are nodata
+        if np.all(np.isclose(out_data, nodata_value, equal_nan=True)):
+            # if statistic is mode set to 0 else set to nan
+            if statistic == 'mode':
+                stat = 0
             else:
-                raise ValueError('The threshold side must be either "above" or "below".')
-        elif thr_value is not None:
-            if thr_side.lower() == 'above':
-                # filter the data above the threshold
-                data = out_data[out_data > thr_value]
-            elif thr_side.lower() == 'below':
-                # filter the data below the threshold
-                data = out_data[out_data < thr_value]
-            else:
-                raise ValueError('The threshold side must be either "above" or "below".')
+                stat = np.nan
         else:
-            data = out_data
+            # remove the nodata values
+            out_data = out_data[~np.isclose(out_data, nodata_value, equal_nan=True)]
 
-        if statistic == 'mean':
-            stat = np.mean(data)
-        elif statistic == 'median':
-            stat = np.median(data)
-        elif statistic == 'mode':
-            stat = np.bincount(data).argmax()
-        elif statistic == 'sum':
-            stat = np.sum(data)
-        elif statistic == 'quantile':
-            if thr_quantile is None:
-                raise ValueError('The threshold quantile must be provided for the "quantile" statistic.')
-            stat = np.quantile(data, thr_quantile)
-        else:
-            raise ValueError('The statistic must be either "mean", "median", "mode", "sum" or "quantile".')
+            if thr_quantile is not None:
+                # Sort the out_data array
+                sorted_data = np.sort(out_data)
+                # Calculate the index for the quantile threshold
+                quantile_position = int(thr_quantile * len(sorted_data))
+                if thr_side.lower() == 'above':
+                    # filter the data above the threshold
+                    data = sorted_data[quantile_position:]
+                elif thr_side.lower() == 'below':
+                    # filter the data below the threshold
+                    data = sorted_data[:quantile_position]
+                else:
+                    raise ValueError('The threshold side must be either "above" or "below".')
+            elif thr_value is not None:
+                if thr_side.lower() == 'above':
+                    # filter the data above the threshold
+                    data = out_data[out_data > thr_value]
+                elif thr_side.lower() == 'below':
+                    # filter the data below the threshold
+                    data = out_data[out_data < thr_value]
+                else:
+                    raise ValueError('The threshold side must be either "above" or "below".')
+            else:
+                data = out_data
+
+            if statistic == 'mean':
+                stat = np.mean(data)
+            elif statistic == 'median':
+                stat = np.median(data)
+            elif statistic == 'mode':
+                # check if data values are integers
+                if np.all(np.equal(np.mod(data, 1), 0)):
+                    stat = np.bincount(data.astype(int)).argmax()
+                else:
+                    raise ValueError('The "mode" statistic can only be calculated for integer data.')
+            elif statistic == 'sum':
+                stat = np.sum(data)
+            elif statistic == 'quantile':
+                if thr_quantile is None:
+                    raise ValueError('The threshold quantile must be provided for the "quantile" statistic.')
+                stat = np.quantile(data, thr_quantile)
+            else:
+                raise ValueError('The statistic must be either "mean", "median", "mode", "sum" or "quantile".')
 
         if column_name is None:
             # if both threshold quantile and value are not provided
@@ -154,18 +166,24 @@ def get_percentages_by_shape(input: xr.DataArray,
 
         # we only care about the data, not the shape
         out_data = out_image.values.flatten()
+        
+        # check if all values are nodata
+        if np.all(np.isclose(out_data, nodata_value, equal_nan=True)):
+            # Add a row of zeros to the results
+            results.append(np.zeros(len(classes)))
+        else:
+            # remove the nodata values
+            out_data = out_data[~np.isclose(out_data, nodata_value, equal_nan=True)]
 
-        # remove the nodata values
-        out_data = out_data[~np.isclose(out_data, nodata_value, equal_nan=True)]
+            # get the values in the classes
+            hist, _ = np.histogram(out_data, bins=bin_edges)
 
-        # get the values in the classes
-        hist, _ = np.histogram(out_data, bins=bin_edges)
+            # Turn the histogram into percentages of the total rounded to 0 decimals
+            hist_percentages = np.round(hist / hist.sum() * 100, 0)
 
-        # Turn the histogram into percentages of the total rounded to 0 decimals
-        hist_percentages = np.round(hist / hist.sum() * 100, 0)
+            # Add the histogram percentages to the list
+            results.append(hist_percentages)
 
-        # Add the histogram percentages to the list
-        results.append(hist_percentages)
 
     # Turn the list of lists into a numpy array
     results = np.array(results)
@@ -317,6 +335,9 @@ def classify_raster(input: xr.DataArray,
     if side.lower() not in ["left", "right"]:
         raise ValueError("Parameter 'side' must be either 'left' or 'right'.")
 
+    # Get no_data value
+    nodata_value = input.attrs.get('_FillValue', np.nan)
+
     # Default classes to [0, 1, 2, ..., len(thresholds)]
     if classes is None:
         classes = list(range(len(thresholds) + 1))
@@ -329,6 +350,9 @@ def classify_raster(input: xr.DataArray,
 
     # Map digitized values to the provided or default classes
     classified_map = np.array(classes, dtype=int)[classified_values]
+
+    # Preserve NaN values
+    classified_map = np.where(np.isnan(input.values), np.nan, classified_map)
 
     # Convert back to xarray.DataArray with the same coordinates and dimensions
     output = xr.DataArray(classified_map,
