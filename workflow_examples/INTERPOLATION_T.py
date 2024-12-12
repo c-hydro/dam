@@ -4,6 +4,7 @@ from dam import DAMWorkflow
 
 from dam.processing.filter import filter_csv_with_climatology
 from dam.processing.interp import interp_with_elevation
+from dam.processing.calc import compute_residuals
 
 import os
 
@@ -38,6 +39,8 @@ def main():
     wf.add_process(filter_csv_with_climatology, climatology=climatologia,
                    thresholds=[25, 25], name_lat_lon_data_csv=['lat', 'lon', 'data'])
     wf.add_process(interp_with_elevation, DEM=dem, homogeneous_regions=homogeneous_regions,
+                   name_lat_lon_data_csv=['lat', 'lon', 'data'])
+    wf.add_process(compute_residuals, data=data,
                    name_lat_lon_data_csv=['lat', 'lon', 'data'])
 
     wf.run(time=TimeRange('2024-04-01 00:00', '2024-04-02 00:00'))
