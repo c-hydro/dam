@@ -28,7 +28,7 @@ _resampling_methods = {
     'RMS': 14
 }
 
-@as_DAM_process(continuous_space = False)
+@as_DAM_process(input_type='xarray', output_type='xarray',continuous_space = False)
 def match_grid(input: xr.DataArray,
                grid: xr.DataArray,
                resampling_method: str|int = 'NearestNeighbour',
