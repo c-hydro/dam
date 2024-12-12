@@ -1,5 +1,6 @@
 from typing import Optional
 
+import pandas as pd
 import numpy as np
 import xarray as xr
 import rioxarray
@@ -119,28 +120,17 @@ def apply_raster_mask(input: xr.DataArray,
     data = data.rio.write_nodata(nodata_value)
     return data
 
-# QAQC method based on climatology. This works on a csv file and filters out values that are outside the climatology +- thresholds
-def filter_csv_with_climatology(input: str,
-                     climatology: str,
+@as_DAM_process(input_type = 'csv', output_type = 'csv')
+def filter_csv_with_climatology(input: pd.DataFrame,
+                     climatology: xr.DataArray,
                      thresholds: list[float],
-                     name_lat_lon_data_csv: list[str],
-                     output: Optional[str] = None,
-                     rm_input: bool = False) -> str:
+                     name_lat_lon_data_csv: list[str]) -> pd.DataFrame:
     """
-        Filter a dataframe based on a climatology. The climatology is a raster map and the dataframe is a csv file.
-        The dataframe is filtered based on the climatology +- thresholds.
-        The dataframe is then saved to a new csv file.
+        Filter a dataframe based on a climatology +- thresholds.
     """
 
-    if output is None:
-        output = input.replace('.csv', '_filtered.csv')
-
-    # load climatology as xarray
-    climatology = read_geotiff(climatology)
-    climatology = np.squeeze(climatology)
-
-    #load data and get lat, lon
-    data = read_csv(input)
+    data = input
+    climatology = climatology.squeeze()
     lat = data[name_lat_lon_data_csv[0]].to_numpy()
     lon = data[name_lat_lon_data_csv[1]].to_numpy()
 
@@ -158,10 +148,4 @@ def filter_csv_with_climatology(input: str,
     # remove columns with all NaNs
     data = data.dropna(axis='rows', how='all')
 
-    # save to csv
-    save_csv(data, output)
-
-    if rm_input:
-        remove_file(input)
-
-    return output
+    return data
