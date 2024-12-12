@@ -50,7 +50,7 @@ def apply_scale_factor(input: xr.DataArray,
 
     return data
 
-@as_DAM_process()
+@as_DAM_process(input_type = 'xarray', output_type = 'shape')
 def summarise_by_shape(input: xr.DataArray,
                        shapes: gpd.GeoDataFrame,
                        statistic: str = 'mean',
@@ -142,7 +142,7 @@ def summarise_by_shape(input: xr.DataArray,
 
     return shapes
 
-@as_DAM_process()
+@as_DAM_process(input_type='xarray', output_type='shape')
 def get_percentages_by_shape(input: xr.DataArray,
                       shapes: gpd.GeoDataFrame,
                       classes: list[int],

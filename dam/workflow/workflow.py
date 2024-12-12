@@ -71,15 +71,19 @@ class DAMWorkflow:
             except Exception as e:
                 print(f'Error cleaning up temporary directory: {e}')
 
-    def make_output(self, input: Dataset, output: Optional[Dataset|dict] = None, name = None) -> Dataset:
+    def make_output(self, input: Dataset,
+                    output: Optional[Dataset|dict] = None,
+                    function = None) -> Dataset:
         if isinstance(output, Dataset):
             return output
         
         input_pattern = input.key_pattern
         input_name = input.name
-        if name is not None:
-            extention = os.path.splitext(input_pattern)[1]
-            output_pattern = input_pattern.replace(f'{extention}', f'_{name}{extention}')
+        if function is not None:
+            name = f'_{function.__name__}'
+            ext_in = os.path.splitext(input_pattern)[1][1:]
+            ext_out = function.__getattribute__('output_ext') or ext_in
+            output_pattern = input_pattern.replace(f'.{ext_in}', f'_{name}.{ext_out}')
             output_name = f'{input_name}_{name}'
 
         if output is None:
@@ -107,7 +111,7 @@ class DAMWorkflow:
             previous = self.processes[-1]
             this_input = previous.output
 
-        this_output = self.make_output(this_input, output, function.__name__)
+        this_output = self.make_output(this_input, output, function)
         this_process = DAMProcessor(function = function,
                                     input = this_input,
                                     args = kwargs,

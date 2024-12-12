@@ -36,6 +36,15 @@ def as_DAM_process(input_type: str = 'xarray', output_type: str = 'xarray', **kw
                 result = file_to_xarray(result)
             return result
         
+        if output_type in ['tif', 'tiff', 'gdal', 'xarray', 'file']:
+            setattr(wrapper, 'output_ext', 'tif')
+        elif output_type in ['table', 'csv', 'pandas']:
+            setattr(wrapper, 'output_ext', 'csv')
+        elif output_type in ['shape', 'dict', 'geojson']:
+            setattr(wrapper, 'output_ext', 'json')
+        elif output_type in ['text', 'txt']:
+            setattr(wrapper, 'output_ext', 'txt')
+
         wrapper.__name__ = func.__name__
         for key, value in kwargs.items():
             setattr(wrapper, key, value)
