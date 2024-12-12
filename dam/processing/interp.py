@@ -108,56 +108,46 @@ def interp_with_elevation(input: pd.DataFrame,
     return map_2d
 
 
-def interp_idw(input:str,
+@as_DAM_process(input_type = 'csv', output_type = 'xarray')
+def interp_idw(input:pd.DataFrame,
                name_lat_lon_data_csv: list[str],
-               grid:str,
-               output:Optional[str]=None,
+               dem:xr.DataArray,
+               tmp_dir:str,
                exponent_idw:Optional[int] = 2,
                interp_radius_x:Optional[float] = 1,
                interp_radius_y:Optional[float] = 1,
                interp_no_data:Optional[float] = np.nan,
                epsg_code:Optional[str] = '4326',
-               n_cpu:Optional[int]=1,
-               rm_input:bool=False,
-               rm_temp:bool=True) -> str:
+               n_cpu:Optional[int]=1) -> xr.DataArray:
     """
-    Interpolate data using IDW. The input is a csv file with columns for latitude, longitude, and data.
-    Note that the csv file must have five columns in this order: station_id', 'station_name', 'lat', 'lon', 'data'.
-    Names of this csv file can change, but the order of the columns must be the same.
-    The grid is a raster map where the data will be interpolated.
-    The data is interpolated using IDW.
-    The interpolated data is saved to a new raster map.
+    Interpolate data using IDW.
     """
-
-    if output is None:
-        output = input.replace('.csv', '_interp_idw.tif')
 
     # load data
-    data = read_csv(input)
+    data = input
     lat_points = data[name_lat_lon_data_csv[0]].to_numpy()
     lon_points = data[name_lat_lon_data_csv[1]].to_numpy()
     data_points = data[name_lat_lon_data_csv[2]].to_numpy()
 
     # load grid
-    grid = read_geotiff(grid)
-    grid = np.squeeze(grid)
+    dem = np.squeeze(dem)
 
     # create random tags for temp files
     tag = random_string()
 
     # define paths
-    path_output, file_output = os.path.split(output)
+    path_output = tmp_dir
     os.makedirs(path_output, exist_ok=True)
     file_name_csv = os.path.join(path_output, tag + '.csv')
     file_name_vrt = os.path.join(path_output, tag + '.vrt')
 
     # Define geographical information
-    geox_out_min = np.min(grid.coords[grid.coords.dims[1]]).values
-    geox_out_max = np.max(grid.coords[grid.coords.dims[1]]).values
-    geoy_out_min = np.min(grid.coords[grid.coords.dims[0]]).values
-    geoy_out_max = np.max(grid.coords[grid.coords.dims[0]]).values
-    geo_out_cols = grid.shape[0]
-    geo_out_rows = grid.shape[1]
+    geox_out_min = np.min(dem.coords[dem.coords.dims[1]]).values
+    geox_out_max = np.max(dem.coords[dem.coords.dims[1]]).values
+    geoy_out_min = np.min(dem.coords[dem.coords.dims[0]]).values
+    geoy_out_max = np.max(dem.coords[dem.coords.dims[0]]).values
+    geo_out_cols = dem.shape[0]
+    geo_out_rows = dem.shape[1]
 
     # create and save csv file
     pd_data = pd.DataFrame({'x': lon_points, 'y': lat_points, 'values': data_points})
@@ -168,6 +158,7 @@ def interp_idw(input:str,
     create_point_vrt(file_name_vrt, file_name_csv, tag)
 
     # build command
+    output = os.path.join(path_output, tag + '.tif')
     interp_option = ('-a invdist:power=' + str(exponent_idw) +':smoothing=0.0:radius1=' +
                      str(interp_radius_x) + ':radius2=' +
                      str(interp_radius_y) + ':angle=0.0:nodata=' +
@@ -180,9 +171,8 @@ def interp_idw(input:str,
                     file_name_vrt + ' ' + output + ' --config GDAL_NUM_THREADS ' + str(n_cpu))
     exec_process(command_line=line_command)
 
-    if rm_temp:
-        remove_file(file_name_csv)
-        remove_file(file_name_vrt)
+    # read output
+    map_2d = read_geotiff(output)
+    return map_2d
 
-    if rm_input:
-        remove_file(input)
+
