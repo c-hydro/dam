@@ -9,42 +9,40 @@ from ..utils.random_string import random_string
 from ..utils.io_vrt import create_point_vrt
 from ..utils.exec_process import exec_process
 from ..utils.rm import remove_file
+from ..utils.register_process import as_DAM_process
 
 from .filter import apply_raster_mask
 import os
 import pandas as pd
+import rioxarray
 
-def interp_with_elevation(input: str,
-                          homogeneous_regions: str,
-                          dem: str,
+@as_DAM_process()
+def interp_with_elevation(input: pd.DataFrame,
+                          DEM:xr.DataArray,
+                          homogeneous_regions: xr.DataArray,
                           name_lat_lon_data_csv: list[str],
-                          output:Optional[str]=None,
                           minimum_number_sensors_in_region: Optional[int] = 10,
                           minimum_r2: Optional[float] = 0.25,
-                          rm_input: bool = False) -> str:
+                          crs:str = 'EPSG:4326') -> xr.DataArray:
     """
-    Interpolate data using elevation. The input is a csv file with columns for latitude, longitude, and data.
-    Note that the csv file may have any column, but also needs to have latitude, longitude, and data.
-    Names of this csv file can change, but the ORDER of those columns in name_lat_lon_data_in must be the same.
+    Interpolate data using elevation. The input is a dataframe with columns for latitude, longitude, and data.
+    Note that the dataframe may have any number of columns, but MUST have latitude, longitude, and data.
+    The ORDER of those columns in name_lat_lon_data_in must be the same.
     The homogeneous_regions is a raster map with the same shape as the DEM, where each value corresponds to a region.
     The DEM is a raster map with elevation values.
     The data is interpolated using a linear regression with elevation for each homogeneous region.
-    The interpolated data is saved to a new raster map.
+    The interpolated data is saved to a xr.DataArray.
     """
 
-    if output is None:
-        output = input.replace('.csv', '_interp_elevation.tif')
-
     # load data
-    data = read_csv(input)
+    data = input
     lat_points = data[name_lat_lon_data_csv[0]].to_numpy()
     lon_points = data[name_lat_lon_data_csv[1]].to_numpy()
     data = data[name_lat_lon_data_csv[2]].to_numpy()
 
     #load dem and homogeneous regions
-    dem = read_geotiff(dem)
+    dem = DEM
     dem = np.squeeze(dem)
-    homogeneous_regions = read_geotiff(homogeneous_regions)
     homogeneous_regions = np.squeeze(homogeneous_regions)
 
     # get homogeneous regions and elevation for each station
@@ -67,8 +65,8 @@ def interp_with_elevation(input: str,
          if data_this_region.shape[0] >= minimum_number_sensors_in_region:
 
              elevations_this_region = elevation_stations[homogeneous_regions_stations == region_id]
-             elevations_this_region_filtered = elevations_this_region[(~np.isnan(elevations_this_region)) | (~np.isnan(data_this_region))]
-             data_this_region_filtered = data_this_region[(~np.isnan(elevations_this_region)) | (~np.isnan(data_this_region))]
+             elevations_this_region_filtered = elevations_this_region[(~np.isnan(elevations_this_region)) & (~np.isnan(data_this_region))]
+             data_this_region_filtered = data_this_region[(~np.isnan(elevations_this_region)) & (~np.isnan(data_this_region))]
 
              # compute linear regression
              elevations_this_region_filtered = elevations_this_region_filtered.reshape((-1, 1))  # this is needed to use .fit in LinearReg
@@ -89,8 +87,8 @@ def interp_with_elevation(input: str,
 
     # now we must fill NaNs in maps using a national lapse rate
     elevations_all_filtered = elevation_stations[
-         (~np.isnan(elevation_stations)) | (~np.isnan(data))]
-    data_all_filtered = data[(~np.isnan(elevation_stations)) | (~np.isnan(data))]
+         (~np.isnan(elevation_stations)) & (~np.isnan(data))]
+    data_all_filtered = data[(~np.isnan(elevation_stations)) & (~np.isnan(data))]
 
     # we compute regression
     elevations_all_filtered = elevations_all_filtered.reshape((-1, 1))  # this is needed to use .fit in LinearReg
@@ -105,12 +103,9 @@ def interp_with_elevation(input: str,
     map_2d = xr.DataArray(map_target,
                           coords=[dem.coords[dem.coords.dims[0]], dem.coords[dem.coords.dims[1]]],
                           dims=['y', 'x'])
-    map_2d.rio.set_crs(dem.rio.crs)
-    os.makedirs(os.path.dirname(output), exist_ok=True)
-    write_geotiff_fromXarray(map_2d, output)
+    map_2d = map_2d.rio.set_spatial_dims(x_dim='x', y_dim='y').rio.set_crs(crs)
 
-    if rm_input:
-        remove_file(input)
+    return map_2d
 
 
 def interp_idw(input:str,
