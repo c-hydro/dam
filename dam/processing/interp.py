@@ -16,7 +16,7 @@ import os
 import pandas as pd
 import rioxarray
 
-@as_DAM_process()
+@as_DAM_process(input_type = 'csv', output_type = 'xaarray')
 def interp_with_elevation(input: pd.DataFrame,
                           DEM:xr.DataArray,
                           homogeneous_regions: xr.DataArray,
