@@ -4,7 +4,7 @@ from dam import DAMWorkflow
 
 from dam.processing.filter import filter_csv_with_climatology
 from dam.processing.interp import interp_with_elevation, interp_idw
-from dam.processing.calc import compute_residuals
+from dam.processing.calc import compute_residuals, combine_raster_data
 
 import os
 
@@ -44,6 +44,10 @@ def main():
                    name_lat_lon_data_csv=['lat', 'lon', 'data'])
     wf.add_process(interp_idw, name_lat_lon_data_csv=['lat', 'lon', 'data'],
                    dem=dem, tmp_dir=wf.tmp_dir)
+    wf.add_process(combine_raster_data, raster_to_be_combined=wf.processes[1].output,
+                   statistic='sum', na_ignore=True)
+
+
 
     wf.run(time=TimeRange('2024-04-01 00:00', '2024-04-02 00:00'))
 

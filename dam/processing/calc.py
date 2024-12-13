@@ -195,26 +195,16 @@ def get_percentages_by_shape(input: xr.DataArray,
 
     return shapes
 
-def combine_raster_data(input: list[str],
+@as_DAM_process(input_type = 'xarray', output_type = 'xarray')
+def combine_raster_data(input: xr.DataArray,
                         statistic: str = 'mean',
                         weights: Optional[list[float]] = None,
                         nodata_value: float = np.nan,
                         na_ignore: bool = False,
-                        output: Optional[str] = None,
-                        rm_input: bool = False,
-                        ) -> str:
+                        **kwargs) -> xr.DataArray:
     """
     Combine multiple rasters into a single raster.
     """
-
-    if output is None:
-        output = input[0].replace('.tif', f'_{statistic}.tif')
-
-    # check that the weitghts are the correct length
-    if weights is None:
-        weights = [1] * len(input)
-    elif len(weights) != len(input):
-        raise ValueError('The number of weights must be the same as the number of rasters.')
 
     match statistic:
         case 'sum':
@@ -224,20 +214,35 @@ def combine_raster_data(input: list[str],
         case _:
             raise ValueError('The statistic must be either "sum" or "mean".')
 
-    databrick = np.stack([read_geotiff(i, out = 'array') for i in input])
+    input_data = [input.values]
+    for k, v in kwargs.items():
+        if isinstance(v, xr.DataArray):
+            input_data.append(v.values)
+
+    if len(input_data) == 1:
+        raise ValueError('No additional rasters were provided for combine_raster_data.')
+
+    # check that the weitghts are the correct length
+    if weights is None:
+        weights = [1] * len(input_data)
+    elif len(weights) != len(input_data):
+        raise ValueError('The number of weights must be the same as the number of rasters.')
+
+    # remove 1d dimensions
+    databrick = np.stack([d.squeeze() for d in input_data])
     if na_ignore:
-        databrick_nan = np.where(np.isclose(databrick, nodata_value, equal_nan=True), 0,      databrick)
+        databrick_nan = np.where(np.isclose(databrick, nodata_value, equal_nan=True), 0, databrick)
     else:
         databrick_nan = np.where(np.isclose(databrick, nodata_value, equal_nan=True), np.nan, databrick)
 
     weighted_data = np.einsum('i,ijk->ijk', weights, databrick_nan)
-    mask = np.isfinite(weighted_data) # <- this is a mask of all the nans in the weighted data
+    mask = np.isfinite(weighted_data)  # <- this is a mask of all the nans in the weighted data
     weights = np.array(weights)
     weights_3d = np.broadcast_to(weights[:, np.newaxis, np.newaxis], weighted_data.shape)
     selected_weights = np.where(mask, weights_3d, 0)
     total_weights = np.sum(selected_weights, axis=0)
 
-    weighted_sum = np.sum(weighted_data, axis = 0)
+    weighted_sum = np.sum(weighted_data, axis=0)
 
     if statistic == 'sum':
         result = weighted_sum
@@ -249,13 +254,9 @@ def combine_raster_data(input: list[str],
 
     result = np.where(np.isnan(result), nodata_value, result)
 
-    write_geotiff(result, output, template = input[0], nodata_value = nodata_value)
-
-    if rm_input:
-        for i in input:
-            remove_file(i)
-
-    return output
+    # reshape the result to the original shape
+    result = result.reshape(input.shape)
+    return input.copy(data=result)
 
 # -------------------------------------------------------------------------------------
 # Method to extract residuals from xr.DataArray based on lat-lon and values
