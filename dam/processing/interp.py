@@ -9,42 +9,40 @@ from ..utils.random_string import random_string
 from ..utils.io_vrt import create_point_vrt
 from ..utils.exec_process import exec_process
 from ..utils.rm import remove_file
+from ..utils.register_process import as_DAM_process
 
 from .filter import apply_raster_mask
 import os
 import pandas as pd
+import rioxarray
 
-def interp_with_elevation(input: str,
-                          homogeneous_regions: str,
-                          dem: str,
+@as_DAM_process(input_type = 'csv', output_type = 'xarray')
+def interp_with_elevation(input: pd.DataFrame,
+                          DEM:xr.DataArray,
+                          homogeneous_regions: xr.DataArray,
                           name_lat_lon_data_csv: list[str],
-                          output:Optional[str]=None,
                           minimum_number_sensors_in_region: Optional[int] = 10,
                           minimum_r2: Optional[float] = 0.25,
-                          rm_input: bool = False) -> str:
+                          crs:str = 'EPSG:4326') -> xr.DataArray:
     """
-    Interpolate data using elevation. The input is a csv file with columns for latitude, longitude, and data.
-    Note that the csv file may have any column, but also needs to have latitude, longitude, and data.
-    Names of this csv file can change, but the ORDER of those columns in name_lat_lon_data_in must be the same.
+    Interpolate data using elevation. The input is a dataframe with columns for latitude, longitude, and data.
+    Note that the dataframe may have any number of columns, but MUST have latitude, longitude, and data.
+    The ORDER of those columns in name_lat_lon_data_in must be the same.
     The homogeneous_regions is a raster map with the same shape as the DEM, where each value corresponds to a region.
     The DEM is a raster map with elevation values.
     The data is interpolated using a linear regression with elevation for each homogeneous region.
-    The interpolated data is saved to a new raster map.
+    The interpolated data is saved to a xr.DataArray.
     """
 
-    if output is None:
-        output = input.replace('.csv', '_interp_elevation.tif')
-
     # load data
-    data = read_csv(input)
+    data = input
     lat_points = data[name_lat_lon_data_csv[0]].to_numpy()
     lon_points = data[name_lat_lon_data_csv[1]].to_numpy()
     data = data[name_lat_lon_data_csv[2]].to_numpy()
 
     #load dem and homogeneous regions
-    dem = read_geotiff(dem)
+    dem = DEM
     dem = np.squeeze(dem)
-    homogeneous_regions = read_geotiff(homogeneous_regions)
     homogeneous_regions = np.squeeze(homogeneous_regions)
 
     # get homogeneous regions and elevation for each station
@@ -67,8 +65,8 @@ def interp_with_elevation(input: str,
          if data_this_region.shape[0] >= minimum_number_sensors_in_region:
 
              elevations_this_region = elevation_stations[homogeneous_regions_stations == region_id]
-             elevations_this_region_filtered = elevations_this_region[(~np.isnan(elevations_this_region)) | (~np.isnan(data_this_region))]
-             data_this_region_filtered = data_this_region[(~np.isnan(elevations_this_region)) | (~np.isnan(data_this_region))]
+             elevations_this_region_filtered = elevations_this_region[(~np.isnan(elevations_this_region)) & (~np.isnan(data_this_region))]
+             data_this_region_filtered = data_this_region[(~np.isnan(elevations_this_region)) & (~np.isnan(data_this_region))]
 
              # compute linear regression
              elevations_this_region_filtered = elevations_this_region_filtered.reshape((-1, 1))  # this is needed to use .fit in LinearReg
@@ -89,8 +87,8 @@ def interp_with_elevation(input: str,
 
     # now we must fill NaNs in maps using a national lapse rate
     elevations_all_filtered = elevation_stations[
-         (~np.isnan(elevation_stations)) | (~np.isnan(data))]
-    data_all_filtered = data[(~np.isnan(elevation_stations)) | (~np.isnan(data))]
+         (~np.isnan(elevation_stations)) & (~np.isnan(data))]
+    data_all_filtered = data[(~np.isnan(elevation_stations)) & (~np.isnan(data))]
 
     # we compute regression
     elevations_all_filtered = elevations_all_filtered.reshape((-1, 1))  # this is needed to use .fit in LinearReg
@@ -105,64 +103,51 @@ def interp_with_elevation(input: str,
     map_2d = xr.DataArray(map_target,
                           coords=[dem.coords[dem.coords.dims[0]], dem.coords[dem.coords.dims[1]]],
                           dims=['y', 'x'])
-    map_2d.rio.set_crs(dem.rio.crs)
-    os.makedirs(os.path.dirname(output), exist_ok=True)
-    write_geotiff_fromXarray(map_2d, output)
+    map_2d = map_2d.rio.set_spatial_dims(x_dim='x', y_dim='y').rio.set_crs(crs)
 
-    if rm_input:
-        remove_file(input)
+    return map_2d
 
 
-def interp_idw(input:str,
+@as_DAM_process(input_type = 'csv', output_type = 'xarray')
+def interp_idw(input:pd.DataFrame,
                name_lat_lon_data_csv: list[str],
-               grid:str,
-               output:Optional[str]=None,
+               dem:xr.DataArray,
+               tmp_dir:str,
                exponent_idw:Optional[int] = 2,
                interp_radius_x:Optional[float] = 1,
                interp_radius_y:Optional[float] = 1,
                interp_no_data:Optional[float] = np.nan,
                epsg_code:Optional[str] = '4326',
-               n_cpu:Optional[int]=1,
-               rm_input:bool=False,
-               rm_temp:bool=True) -> str:
+               n_cpu:Optional[int]=1) -> xr.DataArray:
     """
-    Interpolate data using IDW. The input is a csv file with columns for latitude, longitude, and data.
-    Note that the csv file must have five columns in this order: station_id', 'station_name', 'lat', 'lon', 'data'.
-    Names of this csv file can change, but the order of the columns must be the same.
-    The grid is a raster map where the data will be interpolated.
-    The data is interpolated using IDW.
-    The interpolated data is saved to a new raster map.
+    Interpolate data using IDW.
     """
-
-    if output is None:
-        output = input.replace('.csv', '_interp_idw.tif')
 
     # load data
-    data = read_csv(input)
+    data = input
     lat_points = data[name_lat_lon_data_csv[0]].to_numpy()
     lon_points = data[name_lat_lon_data_csv[1]].to_numpy()
     data_points = data[name_lat_lon_data_csv[2]].to_numpy()
 
     # load grid
-    grid = read_geotiff(grid)
-    grid = np.squeeze(grid)
+    dem = np.squeeze(dem)
 
     # create random tags for temp files
     tag = random_string()
 
     # define paths
-    path_output, file_output = os.path.split(output)
+    path_output = tmp_dir
     os.makedirs(path_output, exist_ok=True)
     file_name_csv = os.path.join(path_output, tag + '.csv')
     file_name_vrt = os.path.join(path_output, tag + '.vrt')
 
     # Define geographical information
-    geox_out_min = np.min(grid.coords[grid.coords.dims[1]]).values
-    geox_out_max = np.max(grid.coords[grid.coords.dims[1]]).values
-    geoy_out_min = np.min(grid.coords[grid.coords.dims[0]]).values
-    geoy_out_max = np.max(grid.coords[grid.coords.dims[0]]).values
-    geo_out_cols = grid.shape[0]
-    geo_out_rows = grid.shape[1]
+    geox_out_min = np.min(dem.coords[dem.coords.dims[1]]).values
+    geox_out_max = np.max(dem.coords[dem.coords.dims[1]]).values
+    geoy_out_min = np.min(dem.coords[dem.coords.dims[0]]).values
+    geoy_out_max = np.max(dem.coords[dem.coords.dims[0]]).values
+    geo_out_cols = dem.shape[0]
+    geo_out_rows = dem.shape[1]
 
     # create and save csv file
     pd_data = pd.DataFrame({'x': lon_points, 'y': lat_points, 'values': data_points})
@@ -173,6 +158,7 @@ def interp_idw(input:str,
     create_point_vrt(file_name_vrt, file_name_csv, tag)
 
     # build command
+    output = os.path.join(path_output, tag + '.tif')
     interp_option = ('-a invdist:power=' + str(exponent_idw) +':smoothing=0.0:radius1=' +
                      str(interp_radius_x) + ':radius2=' +
                      str(interp_radius_y) + ':angle=0.0:nodata=' +
@@ -185,9 +171,8 @@ def interp_idw(input:str,
                     file_name_vrt + ' ' + output + ' --config GDAL_NUM_THREADS ' + str(n_cpu))
     exec_process(command_line=line_command)
 
-    if rm_temp:
-        remove_file(file_name_csv)
-        remove_file(file_name_vrt)
+    # read output
+    map_2d = read_geotiff(output)
+    return map_2d
 
-    if rm_input:
-        remove_file(input)
+
