@@ -1,7 +1,8 @@
 import xarray as xr
 import rioxarray as rxr
 import rasterio
-import dask
+
+from d3tools.spatial.space_utils import clip_xarray
 
 from typing import Optional
 import numpy as np
@@ -9,7 +10,6 @@ import tempfile
 import os
 
 from ..utils.register_process import as_DAM_process
-from ..tools.spatial.space_utils import clip_xarray
 
 _resampling_methods = {
     'NearestNeighbour': 0,

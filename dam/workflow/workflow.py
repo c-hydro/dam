@@ -1,14 +1,11 @@
 from .processor import DAMProcessor
 from ..utils.register_process import DAM_PROCESSES
 
-from ..tools.data import Dataset
-from ..tools.data.memory_dataset import MemoryDataset
-from ..tools.data.local_dataset import LocalDataset
-
-from ..tools.timestepping import TimeRange,estimate_timestep
-from ..tools.timestepping.time_utils import get_date_from_str
-
-from ..tools.config.options import Options
+from d3tools.data import Dataset
+from d3tools.data.memory_dataset import MemoryDataset
+from d3tools.data.local_dataset import LocalDataset
+from d3tools.timestepping import TimeRange,estimate_timestep, get_date_from_str
+from d3tools.config.options import Options
 
 import datetime as dt
 from typing import Optional
