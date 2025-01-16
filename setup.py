@@ -34,7 +34,9 @@ setup(
         'dask',
         'boto3',
         'paramiko',
-        'scipy'
+        'scipy',
+        'scikit-learn',
+        'matplotlib'
     ],
     python_requires='>=3.10',
     test_suite='tests',

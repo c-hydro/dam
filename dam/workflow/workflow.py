@@ -5,7 +5,7 @@ from ..tools.data import Dataset
 from ..tools.data.memory_dataset import MemoryDataset
 from ..tools.data.local_dataset import LocalDataset
 
-from ..tools.timestepping import TimeRange
+from ..tools.timestepping import TimeRange,estimate_timestep
 from ..tools.timestepping.time_utils import get_date_from_str
 
 from ..tools.config.options import Options
@@ -140,7 +140,11 @@ class DAMWorkflow:
             if self.input.time_signature == 'end+1':
                 timestamps = [t - dt.timedelta(days = 1) for t in timestamps]
 
-            timestep = self.input.estimate_timestep()
+            if len(timestamps) > 5:
+                timestep = estimate_timestep(timestamps)
+            else:
+                timestep = self.input.estimate_timestep()
+
             if timestep is not None:
                 timesteps = [timestep.from_date(t) for t in timestamps]
             else:

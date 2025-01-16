@@ -9,6 +9,7 @@ import tempfile
 import os
 
 from ..utils.register_process import as_DAM_process
+from ..tools.spatial.space_utils import clip_xarray
 
 _resampling_methods = {
     'NearestNeighbour': 0,
@@ -53,6 +54,19 @@ def match_grid(input: xr.DataArray,
     regridded = regridded.transpose(*dim_names)
 
     return regridded
+
+@as_DAM_process(input_type='xarray', output_type='xarray', continuous_space = False)
+def clip_to_bounds(input: xr.DataArray,
+                   bounds: tuple[float, float, float, float]|xr.DataArray,
+                   ) -> xr.DataArray:
+
+    if isinstance(bounds, xr.DataArray):
+        bounds_da = bounds
+        bounds = bounds_da.rio.bounds()
+
+    input_clipped = clip_xarray(input, bounds)
+    
+    return input_clipped
 
 def _match_grid_xarray(input: xr.DataArray,
                           grid: xr.DataArray,
