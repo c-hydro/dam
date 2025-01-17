@@ -1,0 +1,33 @@
+{
+    "TAGS" : {
+        "DATA_in"  : "sample_data/hsaf-soilmoisture_sample", 
+        "DATA_out" : "output/hsaf-soilmoisture"
+    },
+    "DATASETS":{
+        "__defaults__" : {"type" : "local", "time_signature" : "start"},
+        "sm_layers" : {
+            "path" : "{DATA_in}/layer{ln}/%Y",
+            "filename" : "HSAF-SM-layer{ln}_ITA-PU_%Y%m%d.tif"
+        },
+        "sm_total" : {
+            "path" : "{DATA_out}/%Y",
+            "filename" : "HSAF-SM-full-depth_ITA-PU_%Y%m%d.tif"
+        }
+    },
+    "DAM_WORKFLOW":{
+        "input" : "{DATASETS.sm_layers, ln = '1'}",
+        "output": "{DATASETS.sm_total}",
+        "options": {
+            "intermediate_output": "Tmp",
+            "tmp_dir": "tmp"
+        },
+        "process_list":[
+            {"function": "combine_raster_data",
+                "statistic": "mean",
+                "weights" : [7, 21, 44, 117],
+                "l2" : "{DATASETS.sm_layers, ln = '2'}",
+                "l3" : "{DATASETS.sm_layers, ln = '3'}",
+                "l4" : "{DATASETS.sm_layers, ln = '4'}"}
+        ]
+    }
+}
