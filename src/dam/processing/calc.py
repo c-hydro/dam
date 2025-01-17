@@ -146,6 +146,13 @@ def get_percentages_by_shape(input: xr.DataArray,
     """
     Classify a raster by a shapefile.
     """
+
+    # if input is integer
+    if input.dtype == 'int':
+        # change the nodata value to -9999 # otherwise this will create issues later
+        input = input.where(input != input.attrs.get('_FillValue', np.nan), -9999)
+        input.attrs['_FillValue'] = -9999
+
     # get no_data value
     nodata_value = input.attrs.get('_FillValue', np.nan)
 
