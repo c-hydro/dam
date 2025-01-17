@@ -3,6 +3,7 @@ import xarray as xr
 import geopandas as gpd
 import pandas as pd
 
+from collections import OrderedDict
 from typing import Optional
 
 from ..utils.geo_utils import ltln2val_from_2dDataArray
@@ -217,7 +218,8 @@ def combine_raster_data(input: xr.DataArray,
             raise ValueError('The statistic must be either "sum" or "mean".')
 
     input_data = [input.values]
-    for k, v in kwargs.items():
+    ordered_kwargs = OrderedDict(kwargs)
+    for k, v in ordered_kwargs.items():
         if isinstance(v, xr.DataArray):
             input_data.append(v.values)
 
