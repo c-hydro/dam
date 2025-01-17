@@ -39,3 +39,4 @@ venv.bak/
 # sample data and output
 sample_data/*
 output/*
+workflow_examples/old/*

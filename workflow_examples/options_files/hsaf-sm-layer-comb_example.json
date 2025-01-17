@@ -4,7 +4,7 @@
         "DATA_out" : "output/hsaf-soilmoisture"
     },
     "DATASETS":{
-        "__defaults__" : {"type" : "local", "time_signature" : "start"},
+        "__defaults__" : {"type" : "local"},
         "sm_layers" : {
             "path" : "{DATA_in}/layer{ln}/%Y",
             "filename" : "HSAF-SM-layer{ln}_ITA-PU_%Y%m%d.tif"
