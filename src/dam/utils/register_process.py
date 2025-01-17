@@ -1,10 +1,11 @@
 import xarray as xr
 import rioxarray as rxr
-from osgeo import gdal
 import tempfile
 import os
 
 from typing import Iterable
+
+from ..utils.errors import GDAL_ImportError
 
 global DAM_PROCESSES
 DAM_PROCESSES = {}
@@ -84,7 +85,12 @@ def file_to_xarray(filename: str) -> xr.DataArray:
     return rxr.open_rasterio(filename)
 
 @with_list_input
-def xarray_to_gdal(data_array: xr.DataArray) -> gdal.Dataset:
+def xarray_to_gdal(data_array: xr.DataArray) -> 'gdal.Dataset':
+    try: 
+        from osgeo import gdal
+    except ImportError:
+        raise GDAL_ImportError
+    
     temp_file = xarray_to_file(data_array)
     
     # Open the temporary file with GDAL
@@ -96,7 +102,12 @@ def xarray_to_gdal(data_array: xr.DataArray) -> gdal.Dataset:
     return gdal_dataset
 
 @with_list_input
-def gdal_to_xarray(dataset: gdal.Dataset) -> xr.DataArray:
+def gdal_to_xarray(dataset: 'gdal.Dataset') -> xr.DataArray:
+    try:
+        from osgeo import gdal
+    except ImportError:
+        raise GDAL_ImportError
+
     # Create a temporary file
     temp_file = tempfile.NamedTemporaryFile(suffix='.tif', delete=False)
     temp_file.close()
