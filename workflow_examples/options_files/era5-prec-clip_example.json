@@ -1,0 +1,33 @@
+{
+    "TAGS" : {
+        "DATA_in"  : "sample_data/era5-prec-tiles_sample", 
+        "DATA_out" : "output/era5-prec"
+    },
+    "DATASETS":{
+        "__defaults__" : {"type" : "local"},
+        "prec_tile" : {
+            "path" : "{DATA_in}/tile2/%Y",
+            "filename" : "ERA5-PREC10d_tile2_%Y%m%d.tif"
+        },
+        "prec_ITASA" : {
+            "path" : "{DATA_out}/ITA-SA/%Y",
+            "filename" : "ERA5-PREC10d_ITA-SA_%Y%m%d.tif"
+        },
+        "bounds" : {
+            "path" : "sample_data/aux",
+            "filename" : "SHAPE_ITA-SA.geojson"
+        }
+    },
+    "DAM_WORKFLOW":{
+        "input" : "{DATASETS.prec_tile}",
+        "output": "{DATASETS.prec_ITASA}",
+        "options": {
+            "intermediate_output": "Tmp",
+            "tmp_dir": "tmp"
+        },
+        "process_list":[
+            {"function": "clip_to_bounds",
+                "bounds": "{DATASETS.bounds}"}
+        ]
+    }
+}

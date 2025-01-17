@@ -1,6 +1,7 @@
 import xarray as xr
 import rioxarray as rxr
 import rasterio
+import geopandas as gdp
 
 from d3tools.spatial.space_utils import clip_xarray
 
@@ -57,12 +58,15 @@ def match_grid(input: xr.DataArray,
 
 @as_DAM_process(input_type='xarray', output_type='xarray', continuous_space = False)
 def clip_to_bounds(input: xr.DataArray,
-                   bounds: tuple[float, float, float, float]|xr.DataArray,
+                   bounds: tuple[float, float, float, float]|xr.DataArray|gdp.GeoDataFrame,
                    ) -> xr.DataArray:
 
     if isinstance(bounds, xr.DataArray):
         bounds_da = bounds
         bounds = bounds_da.rio.bounds()
+    elif isinstance(bounds, gdp.GeoDataFrame):
+        bounds_gdf = bounds
+        bounds = bounds_gdf.total_bounds
 
     input_clipped = clip_xarray(input, bounds)
     

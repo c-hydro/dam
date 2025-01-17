@@ -10,7 +10,7 @@
             "filename" : "ERA5-PREC10d_tile{tile}_%Y%m%d.tif"
         },
         "prec_global" : {
-            "path" : "{DATA_out}/%Y",
+            "path" : "{DATA_out}/global/%Y",
             "filename" : "ERA5-PREC10d_global_%Y%m%d.tif"
         },
         "mask" : {
