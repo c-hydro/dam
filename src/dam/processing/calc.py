@@ -142,6 +142,8 @@ def summarise_by_shape(input: xr.DataArray,
 def get_percentages_by_shape(input: xr.DataArray,
                       shapes: gpd.GeoDataFrame,
                       classes: list[int],
+                      all_touched: bool = False,
+                      decimals: int = 0
                       ) -> gpd.GeoDataFrame:
     """
     Classify a raster by a shapefile.
@@ -165,7 +167,7 @@ def get_percentages_by_shape(input: xr.DataArray,
     # Loop over each geometry in the GeoDataFrame
     for geom in shapes.geometry:
         # Mask the raster with the current geometry
-        out_image = input.rio.clip([geom])
+        out_image = input.rio.clip([geom], all_touched=all_touched)
 
         # we only care about the data, not the shape
         out_data = out_image.values.flatten()
@@ -180,13 +182,11 @@ def get_percentages_by_shape(input: xr.DataArray,
 
             # get the values in the classes
             hist, _ = np.histogram(out_data, bins=bin_edges)
-
-            # Turn the histogram into percentages of the total rounded to 0 decimals
-            hist_percentages = np.round(hist / hist.sum() * 100, 0)
+            # Turn the histogram into percentages of the total rounded to the specified number of decimals
+            hist_percentages = np.round(hist / hist.sum() * 100, decimals)
 
             # Add the histogram percentages to the list
             results.append(hist_percentages)
-
 
     # Turn the list of lists into a numpy array
     results = np.array(results)
