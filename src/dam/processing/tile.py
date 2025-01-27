@@ -4,7 +4,7 @@ from collections import defaultdict
 from typing import Optional, Generator
 
 from ..utils.register_process import as_DAM_process
-from ..utils.errors import GDAL_ImportError
+from d3tools.errors import GDAL_ImportError
 
 @as_DAM_process(input_type = 'file', output_type = 'gdal', input_tiles = True)
 def combine_tiles(inputs: list[str]|list['gdal.Dataset'],
@@ -17,7 +17,7 @@ def combine_tiles(inputs: list[str]|list['gdal.Dataset'],
     try:
         from osgeo import gdal
     except ImportError:
-        raise GDAL_ImportError
+        raise GDAL_ImportError(function = 'dam.processing.combine_tiles')
 
     if num_cpus is None:
         num_cpus = 'ALL_CPUS'

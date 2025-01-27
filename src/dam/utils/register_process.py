@@ -5,7 +5,7 @@ import os
 
 from typing import Iterable
 
-from ..utils.errors import GDAL_ImportError
+from d3tools.errors import GDAL_ImportError
 
 global DAM_PROCESSES
 DAM_PROCESSES = {}
