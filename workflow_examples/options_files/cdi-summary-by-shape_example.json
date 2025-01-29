@@ -1,0 +1,37 @@
+{
+    "TAGS" : {
+        "DATA_in"  : "sample_data/cdi_sample", 
+        "DATA_out" : "output/cdi_eu27-summary",
+        "tile_n"   : "h18v04"
+    },
+    "DATASETS":{
+        "__defaults__" : {"type" : "local", "time_signature" : "start"},
+        "data" : {
+            "path" : "{DATA_in}/%Y",
+            "filename" : "cdi_%Y%m%d.tif"
+        },
+        "summary" : {
+            "path" : "{DATA_out}/%Y",
+            "filename" : "cdi_eu27-summary_%Y%m%d.csv"
+        },
+        "shapes" : {
+            "path" : "sample_data/aux",
+            "filename" : "SHAPE_eu27-adm0.geojson"
+        }
+    },
+    "DAM_WORKFLOW":{
+        "input" : "{DATASETS.data}",
+        "output": "{DATASETS.summary}",
+        "options": {
+            "intermediate_output": "Tmp",
+            "tmp_dir": "tmp"
+        },
+        "process_list":[
+            {"function": "get_percentages_by_shape",
+                "shapes": "{DATASETS.shapes}",
+                "classes" : [0,1,2,3,4,5,6],
+                "decimals": 2},
+            {"function": "extract_table"}
+        ]
+    }
+}

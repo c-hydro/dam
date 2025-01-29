@@ -1,17 +1,14 @@
 from .processor import DAMProcessor
 from ..utils.register_process import DAM_PROCESSES
 
-from ..tools.data import Dataset
-from ..tools.data.memory_dataset import MemoryDataset
-from ..tools.data.local_dataset import LocalDataset
-
-from ..tools.timestepping import TimeRange,estimate_timestep
-from ..tools.timestepping.time_utils import get_date_from_str
-
-from ..tools.config.options import Options
+from d3tools.data import Dataset
+from d3tools.data.memory_dataset import MemoryDataset
+from d3tools.data.local_dataset import LocalDataset
+from d3tools.timestepping import TimeRange,estimate_timestep, get_date_from_str
+from d3tools.config.options import Options
 
 import datetime as dt
-from typing import Optional
+from typing import Optional, Sequence
 import tempfile
 import os
 import shutil
@@ -123,7 +120,7 @@ class DAMWorkflow:
 
         self.processes.append(this_process)
 
-    def run(self, time: dt.datetime|str|TimeRange, **kwargs) -> None:
+    def run(self, time: dt.datetime|str|TimeRange|Sequence[dt.datetime], **kwargs) -> None:
 
         if len(self.processes) == 0:
             raise ValueError('No processes have been added to the workflow.')
@@ -133,8 +130,12 @@ class DAMWorkflow:
                 self.processes[-1].output = self.output.copy()
             else:
                 raise ValueError('No output dataset has been set.')
-
-        if hasattr(time, 'start') and hasattr(time, 'end'):
+            
+        if isinstance(time, Sequence):
+            time.sort()
+            time = TimeRange(time[0], time[-1])
+        
+        if isinstance(time, TimeRange):
             timestamps = self.input.get_times(time, **kwargs)
 
             if self.input.time_signature == 'end+1':

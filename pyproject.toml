@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dam"
+version = "1.2.0"
+description = "Data Analysis Middleware: a package for spatial data handling and transformation."
+authors = [
+    { name = "Luca Trotter", email = "luca.trotter@cimafoundation.org" },
+    { name = "Michel Isabellon"},
+    { name = "Checco Avanzi"}
+]
+maintainers = [
+    { name = "Luca Trotter", email = "luca.trotter@cimafoundation.org"}
+]
+license = { file = "LICENSE" }
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: ECPL License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "d3tools@git+https://github.com/c-hydro/d3tools@v2.0.0",
+    "numpy>=1.21.5",
+    "xarray>=2024.3.0",
+    "astropy>=6.1.2",
+    "rasterio==1.3.10",
+    "rioxarray==0.15.5",
+    "xarray==2024.3.0",
+    "scikit_learn==1.6.1",
+    "unpackqa==0.2.1",
+    "pandas>=1.3.5",
+    "geopandas>=0.14.4",
+]
+
+[project.urls]
+Repository = "https://github.com/c-hydro/dryes"
+
+[project.optional-dependencies]
+
+# dependencies for creating thumbnails
+thumbnails = [
+    "d3tools[thumbnails]@git+https://github.com/c-hydro/d3tools@v2.0.0"
+]
+
+# dependencies for reading and writing remote data
+remote-data = [
+    "d3tools[remote-data]@git+https://github.com/c-hydro/d3tools@v2.0.0"
+]

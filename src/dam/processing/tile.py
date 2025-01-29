@@ -1,18 +1,23 @@
-from osgeo import gdal
 import xarray as xr
 import numpy as np
 from collections import defaultdict
 from typing import Optional, Generator
 
 from ..utils.register_process import as_DAM_process
+from d3tools.errors import GDAL_ImportError
 
 @as_DAM_process(input_type = 'file', output_type = 'gdal', input_tiles = True)
-def combine_tiles(inputs: list[str|gdal.Dataset],
+def combine_tiles(inputs: list[str]|list['gdal.Dataset'],
                   num_cpus: Optional[int] = None
-                  )-> gdal.Dataset:
+                  )-> 'gdal.Dataset':
     """
     Mosaic a set of input rasters.
     """
+
+    try:
+        from osgeo import gdal
+    except ImportError:
+        raise GDAL_ImportError(function = 'dam.processing.combine_tiles')
 
     if num_cpus is None:
         num_cpus = 'ALL_CPUS'

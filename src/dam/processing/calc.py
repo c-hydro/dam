@@ -1,16 +1,12 @@
 import numpy as np
 import xarray as xr
 import geopandas as gpd
-import rasterio
 import pandas as pd
 
+from collections import OrderedDict
 from typing import Optional
-import os
 
-from ..utils.io_geotiff import read_geotiff, write_geotiff
-from ..utils.io_csv import read_csv, save_csv
 from ..utils.geo_utils import ltln2val_from_2dDataArray
-from ..utils.rm import remove_file
 from ..utils.register_process import as_DAM_process
 
 @as_DAM_process(input_type = 'xarray', output_type = 'xarray')
@@ -147,10 +143,19 @@ def summarise_by_shape(input: xr.DataArray,
 def get_percentages_by_shape(input: xr.DataArray,
                       shapes: gpd.GeoDataFrame,
                       classes: list[int],
+                      all_touched: bool = False,
+                      decimals: int = 0
                       ) -> gpd.GeoDataFrame:
     """
     Classify a raster by a shapefile.
     """
+
+    # if input is integer
+    if input.dtype == 'int':
+        # change the nodata value to -9999 # otherwise this will create issues later
+        input = input.where(input != input.attrs.get('_FillValue', np.nan), -9999)
+        input.attrs['_FillValue'] = -9999
+
     # get no_data value
     nodata_value = input.attrs.get('_FillValue', np.nan)
 
@@ -163,7 +168,7 @@ def get_percentages_by_shape(input: xr.DataArray,
     # Loop over each geometry in the GeoDataFrame
     for geom in shapes.geometry:
         # Mask the raster with the current geometry
-        out_image = input.rio.clip([geom])
+        out_image = input.rio.clip([geom], all_touched=all_touched)
 
         # we only care about the data, not the shape
         out_data = out_image.values.flatten()
@@ -178,13 +183,11 @@ def get_percentages_by_shape(input: xr.DataArray,
 
             # get the values in the classes
             hist, _ = np.histogram(out_data, bins=bin_edges)
-
-            # Turn the histogram into percentages of the total rounded to 0 decimals
-            hist_percentages = np.round(hist / hist.sum() * 100, 0)
+            # Turn the histogram into percentages of the total rounded to the specified number of decimals
+            hist_percentages = np.round(hist / hist.sum() * 100, decimals)
 
             # Add the histogram percentages to the list
             results.append(hist_percentages)
-
 
     # Turn the list of lists into a numpy array
     results = np.array(results)
@@ -215,7 +218,8 @@ def combine_raster_data(input: xr.DataArray,
             raise ValueError('The statistic must be either "sum" or "mean".')
 
     input_data = [input.values]
-    for k, v in kwargs.items():
+    ordered_kwargs = OrderedDict(kwargs)
+    for k, v in ordered_kwargs.items():
         if isinstance(v, xr.DataArray):
             input_data.append(v.values)
 
