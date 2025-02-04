@@ -12,7 +12,7 @@ class DAMProcessor:
                  args: dict = {},
                  output: Dataset = None,
                  wf_options: dict = {}) -> None:
-        self.break_point = False
+        self.S_break_point = False
 
         ds_args = {}
         static_args = {}
@@ -39,7 +39,7 @@ class DAMProcessor:
         continuous_space = function.__dict__.get('continuous_space', True)
         if tiling:
             continuous_space = False
-            self.break_point = True
+            self.S_break_point = True
 
         if output is not None and continuous_space:
             output._template = input._template

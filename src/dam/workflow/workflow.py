@@ -29,7 +29,7 @@ class DAMWorkflow:
         self.input = input
         self.output = output
         self.processes = []
-        self.break_points = []
+        self.S_break_points = [] #spatial break points
 
         self.options = self.default_options
         if options is not None:
@@ -115,8 +115,8 @@ class DAMWorkflow:
                                     output = this_output,
                                     wf_options = self.options)
 
-        if this_process.break_point:
-            self.break_points.append(len(self.processes))
+            if this_process.S_break_point:
+                self.S_break_points.append(len(self.processes))
 
         self.processes.append(this_process)
 
@@ -162,7 +162,7 @@ class DAMWorkflow:
         if isinstance(time, str):
             time = get_date_from_str(time)
 
-        if len(self.break_points) == 0:
+        if len(self.S_break_points) == 0:
             self._run_processes(self.processes, time, **kwargs)
         else:
             # proceed in chuncks: run until the breakpoint, then stop
@@ -170,7 +170,7 @@ class DAMWorkflow:
             processes_to_run = []
             while i < len(self.processes):
                 #collect all processes until the breakpoint
-                if i not in self.break_points:
+                if i not in self.S_break_points:
                     processes_to_run.append(self.processes[i])
                 else:
                     # run the processes until the breakpoint
