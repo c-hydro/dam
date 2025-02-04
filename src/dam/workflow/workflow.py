@@ -205,3 +205,22 @@ class DAMWorkflow:
         else:
             for process in processes:
                 process.run(time, **kwargs)
+
+    def split_workflow(self, breakpoints):
+        options = self.options
+        subworkflows = []
+        start = 0
+        breakpoints = breakpoints + [len(self.processes)]
+        for bp in breakpoints:
+            this_input = self.processes[start].input
+            this_output = self.processes[bp-1].output
+            this_wf = DAMWorkflow(this_input, this_output, options)
+            these_processes = self.processes[start:bp]
+            this_wf.processes = these_processes
+            subworkflows.append(this_wf)
+            if bp == len(self.processes):
+                break
+            subworkflows.append(self.processes[bp])
+            start = bp+1
+        
+        return subworkflows
