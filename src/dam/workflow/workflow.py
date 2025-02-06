@@ -245,17 +245,18 @@ class DAMWorkflow:
 
         breakpoint_id, breakpoint_lookback = breakpoint
 
-        # this is the definition of the subworkflow
-        this_input = self.processes[0].input
-        this_output = self.processes[breakpoint_id-1].output
-        this_wf = DAMWorkflow(this_input, this_output, options)
-        these_processes = self.processes[0:breakpoint_id]
-        this_wf.processes = these_processes
+        if breakpoint_id > 0:
+            # this is the definition of the subworkflow
+            this_input = self.processes[0].input
+            this_output = self.processes[breakpoint_id-1].output
+            this_wf = DAMWorkflow(this_input, this_output, options)
+            these_processes = self.processes[0:breakpoint_id]
+            this_wf.processes = these_processes
 
-        subworkflows.append((this_wf, breakpoint_lookback))
-            
+            subworkflows.append((this_wf, breakpoint_lookback))
+                
         # here is the definition of the breakpoint itself
-        subworkflows.append((self.processes[breakpoint_id], None)) 
+        subworkflows.append((self.processes[breakpoint_id], None))
 
         if breakpoint_id < len(self.processes)-1:
             # and the rest of the workflow

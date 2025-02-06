@@ -35,6 +35,7 @@ def as_DAM_process(input_type: str = 'xarray', output_type: str = 'xarray', **kw
             elif output_type == 'file':
                 # Add your output validation logic here
                 result = file_to_xarray(result)
+                
             return result
         
         if output_type in ['tif', 'tiff', 'gdal', 'xarray', 'file']:
