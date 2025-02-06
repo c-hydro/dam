@@ -1,10 +1,13 @@
 from .processor import DAMProcessor
+from .time_aggregator import DAMAggregator, get_agg_args
+
 from ..utils.register_process import DAM_PROCESSES
+from ..utils.register_agg import AGG_FUNCTIONS
 
 from d3tools.data import Dataset
 from d3tools.data.memory_dataset import MemoryDataset
 from d3tools.data.local_dataset import LocalDataset
-from d3tools.timestepping import TimeRange,estimate_timestep, get_date_from_str
+from d3tools.timestepping import TimeRange, get_date_from_str, TimeStep
 from d3tools.config.options import Options
 
 import datetime as dt
@@ -29,7 +32,10 @@ class DAMWorkflow:
         self.input = input
         self.output = output
         self.processes = []
-        self.S_break_points = [] #spatial break points
+        self.S_break_points = []   #spatial break points
+        self.T_break_point  = None #temporal break point
+
+        self.lookback_window = None
 
         self.options = self.default_options
         if options is not None:
@@ -109,11 +115,28 @@ class DAMWorkflow:
             this_input = previous.output
 
         this_output = self.make_output(this_input, output, function)
-        this_process = DAMProcessor(function = function,
-                                    input = this_input,
-                                    args = kwargs,
-                                    output = this_output,
-                                    wf_options = self.options)
+        if function.__name__ == 'aggregate_times':
+            agg_func, agg_args, other_args = get_agg_args(kwargs)
+            this_process = DAMAggregator(function = agg_func,
+                                         agg_args = agg_args,
+                                         input = this_input,
+                                         args = other_args,
+                                         output = this_output,
+                                         wf_options = self.options)
+            
+            if self.T_break_point is not None:
+                raise ValueError('Only one time aggregation is supported per workflow.')
+            else:
+                max_window = max([w for w in agg_args['windows'].values()])
+                self.T_break_point = (len(self.processes), max_window)
+            
+        else:
+
+            this_process = DAMProcessor(function = function,
+                                        input = this_input,
+                                        args = kwargs,
+                                        output = this_output,
+                                        wf_options = self.options)
 
             if this_process.S_break_point:
                 self.S_break_points.append(len(self.processes))
@@ -121,6 +144,10 @@ class DAMWorkflow:
         self.processes.append(this_process)
 
     def run(self, time: dt.datetime|str|TimeRange|Sequence[dt.datetime], **kwargs) -> None:
+
+        if isinstance(time, Sequence):
+            time.sort()
+            time = TimeRange(time[0], time[-1])
 
         if len(self.processes) == 0:
             raise ValueError('No processes have been added to the workflow.')
@@ -130,10 +157,16 @@ class DAMWorkflow:
                 self.processes[-1].output = self.output.copy()
             else:
                 raise ValueError('No output dataset has been set.')
-            
-        if isinstance(time, Sequence):
-            time.sort()
-            time = TimeRange(time[0], time[-1])
+
+        if self.T_break_point is not None:
+            for wf, lb in self.split_workflow(self.T_break_point):
+                if lb is not None:
+                    run_start = lb.apply(time.start - dt.timedelta(1)).start
+                    run_time  = TimeRange(run_start, time.end)
+                else:
+                    run_time = time
+                wf.run(run_time, **kwargs)
+            return
         
         if isinstance(time, TimeRange):
             timestamps = self.input.get_times(time, **kwargs)
@@ -206,21 +239,31 @@ class DAMWorkflow:
             for process in processes:
                 process.run(time, **kwargs)
 
-    def split_workflow(self, breakpoints):
+    def split_workflow(self, breakpoint):
         options = self.options
         subworkflows = []
-        start = 0
-        breakpoints = breakpoints + [len(self.processes)]
-        for bp in breakpoints:
-            this_input = self.processes[start].input
-            this_output = self.processes[bp-1].output
+
+        breakpoint_id, breakpoint_lookback = breakpoint
+
+        # this is the definition of the subworkflow
+        this_input = self.processes[0].input
+        this_output = self.processes[breakpoint_id-1].output
+        this_wf = DAMWorkflow(this_input, this_output, options)
+        these_processes = self.processes[0:breakpoint_id]
+        this_wf.processes = these_processes
+
+        subworkflows.append((this_wf, breakpoint_lookback))
+            
+        # here is the definition of the breakpoint itself
+        subworkflows.append((self.processes[breakpoint_id], None)) 
+
+        if breakpoint_id < len(self.processes)-1:
+            # and the rest of the workflow
+            this_input = self.processes[breakpoint_id+1].input
+            this_output = self.processes[-1].output
             this_wf = DAMWorkflow(this_input, this_output, options)
-            these_processes = self.processes[start:bp]
+            these_processes = self.processes[breakpoint_id+1:]
             this_wf.processes = these_processes
-            subworkflows.append(this_wf)
-            if bp == len(self.processes):
-                break
-            subworkflows.append(self.processes[bp])
-            start = bp+1
+            subworkflows.append((this_wf, None))
         
         return subworkflows
