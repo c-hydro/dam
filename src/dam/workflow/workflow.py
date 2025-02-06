@@ -146,6 +146,7 @@ class DAMWorkflow:
     def run(self, time: dt.datetime|str|TimeRange|Sequence[dt.datetime], **kwargs) -> None:
 
         if isinstance(time, Sequence):
+            time = list(time)
             time.sort()
             time = TimeRange(time[0], time[-1])
 
