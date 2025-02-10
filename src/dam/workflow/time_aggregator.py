@@ -104,6 +104,9 @@ class DAMAggregator(DAMProcessor):
 
         agg_range = time.agg_range
         relevant_times = self.input.get_times(agg_range, **kwargs)
+        if len(relevant_times) == 0:
+            return
+
         input_timestep = self.input.estimate_timestep(relevant_times)
         if input_timestep is None:
             return

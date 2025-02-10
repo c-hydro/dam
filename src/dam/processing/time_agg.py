@@ -11,7 +11,7 @@ from typing import Sequence
 def sum(input: list[xr.DataArray],
         input_agg: list[TimeRange],
         this_agg: TimeRange,
-        na_ignore = True,
+        na_ignore = False,
         **kwargs) -> xr.DataArray:
 
      all_inputs = np.stack(input, axis = 0)
@@ -27,7 +27,7 @@ def sum(input: list[xr.DataArray],
 def mean(input: list[xr.DataArray],
          input_agg: list[TimeRange],
          this_agg: TimeRange,
-         na_ignore = True,
+         na_ignore = False,
          **kwargs) -> xr.DataArray:
      
      all_inputs = np.stack(input, axis = 0)
