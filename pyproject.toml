@@ -48,5 +48,5 @@ thumbnails = [
 
 # dependencies for reading and writing remote data
 remote-data = [
-    "d3tools[remote-data]@git+https://github.com/c-hydro/d3tools@v2.0.1.alpha"
+    "d3tools[remote-data]@git+https://github.com/c-hydro/d3tools@v2.0.1-alpha"
 ]
