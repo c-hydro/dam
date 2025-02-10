@@ -4,3 +4,4 @@ from .tile import *
 from .warp import *
 from .file import *
 from .interp import *
+from .time_agg import *
