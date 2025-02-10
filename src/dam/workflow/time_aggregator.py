@@ -53,7 +53,7 @@ class DAMAggregator(DAMProcessor):
             if len(mult_windows) > 0:
                 input_window = max(mult_windows)
                 input_window_name = window_names[windows.index(input_window)]
-                self.input = raw_output.update(agg = input_window_name)
+                self.input = raw_output.update(agg_window = input_window_name)
                 self.input.agg = input_window
             else:
                 self.input = raw_input
@@ -125,9 +125,9 @@ class DAMAggregator(DAMProcessor):
                                **ds_args)
 
         print(f'{self.funcname}, {window_name} - {time}, {kwargs}')
-        metadata = {'agg' : f'{self.funcname}, {window_name}'}
+        metadata = {'agg_method' : f'{self.funcname}, {window_name}'}
         self.output.timestep = TimeStep.from_unit(step).with_agg(window)
-        self.output.write_data(output, time, agg = window_name, metadata = metadata, **kwargs)
+        self.output.write_data(output, time, agg_window = window_name, metadata = metadata, **kwargs)
 
 def get_agg_args(args: dict):
 
