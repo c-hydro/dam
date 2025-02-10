@@ -4,6 +4,7 @@ import rasterio
 import geopandas as gdp
 
 from d3tools.spatial.space_utils import clip_xarray
+from d3tools.errors import GDAL_ImportError
 
 from typing import Optional
 import numpy as np
@@ -124,8 +125,10 @@ def _match_grid_gdal(input: xr.DataArray,
                         resampling_method: str|int,
                         nodata_threshold: float,
                         nodata_value: Optional[float]) -> xr.DataArray:
-    
-    from osgeo import gdal, gdalconst
+    try:
+        from osgeo import gdal, gdalconst
+    except ImportError:
+        raise GDAL_ImportError('match_grid')
 
     _resampling_methods_gdal = ['NearestNeighbour', 'Bilinear',
                                 'Cubic', 'CubicSpline',
