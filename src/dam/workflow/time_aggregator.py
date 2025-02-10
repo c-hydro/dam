@@ -37,22 +37,38 @@ class DAMAggregator(DAMProcessor):
 
     def run(self, time: TimeRange|TimeStep|dt.datetime|str, **kwargs) -> None:
 
-        for window_name, window in self.agg_args['windows'].items():
-            this_window = (window_name, window)
-            self.run_singlewindow(time, this_window, **kwargs)
+        raw_input  = self.input.copy()
+        raw_output = self.output.copy()
 
+        window_names, windows = zip(*self.agg_args['windows'].items())
+        max_window = max(windows)
+
+        for i in range(len(window_names)):
+            this_window = windows[i]
+            run_window = max_window - this_window
+            run_time_start = run_window.apply(time.start).start
+            run_time = TimeRange(run_time_start - dt.timedelta(1), time.end)
+
+            mult_windows = [w for w in windows[0:i] if this_window.is_multiple(w)]
+            if len(mult_windows) > 0:
+                input_window = max(mult_windows)
+                input_window_name = window_names[windows.index(input_window)]
+                self.input = raw_output.update(agg = input_window_name)
+                self.input.agg = input_window
+            else:
+                self.input = raw_input
+            self.run_singlewindow(run_time, (window_names[i], this_window), **kwargs)
+            
     def run_singlewindow(self,
                          time: TimeRange|TimeStep|dt.datetime|str,
                          window_tuple: tuple[str,TimeWindow],
                          **kwargs) -> None:
         
         window_name, window = window_tuple
+
         step = self.agg_args['step']
         if step is None:
             step = self.input.estimate_timestep(**kwargs).unit
-
-        self.output.timestep = TimeStep.from_unit(step)
-        self.output.timestep.agg_window = window
 
         if isinstance(time, str):
             time = get_date_from_str(time)
@@ -102,6 +118,7 @@ class DAMAggregator(DAMProcessor):
 
         print(f'{self.funcname}, {window_name} - {time}, {kwargs}')
         metadata = {'agg' : f'{self.funcname}, {window_name}'}
+        self.output.timestep = TimeStep.from_unit(step).with_agg(window)
         self.output.write_data(output, time, agg = window_name, metadata = metadata, **kwargs)
 
 def get_agg_args(args: dict):
@@ -121,11 +138,12 @@ def get_agg_args(args: dict):
             agg_args['step'] = find_unit_of_time(value)
         elif key == 'agg_window':
             if isinstance(value, str):
-                agg_args['windows'] = {value: TimeWindow.from_str(value)}
+                raw_dict = {value: TimeWindow.from_str(value)}
             elif isinstance(value, dict):
-                agg_args['windows'] = {k:TimeWindow.from_str(v) for k, v in value.items()}
+                raw_dict = {k:TimeWindow.from_str(v) for k, v in value.items()}
             elif isinstance(value, Sequence):
-                agg_args['windows'] = {v:TimeWindow.from_str(v) for v in value}
+                raw_dict = {v:TimeWindow.from_str(v) for v in value}
+            agg_args['windows'] = {k:v for k, v in sorted(raw_dict.items(), key = lambda item: item[1])}
         else:
             other_args[key] = value
 
