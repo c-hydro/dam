@@ -19,9 +19,9 @@ import shutil
 class DAMWorkflow:
 
     default_options = {
-        'intermediate_output'   : 'Mem', # 'Mem' or 'Tmp'
+        'intermediate_output'   : 'Tmp', # 'Mem' or 'Tmp'
         'break_on_missing_tiles': False,
-        'tmp_dir'               : None
+        'tmp_dir'               : os.getenv('TMP', '/tmp')
     }
 
     def __init__(self,
