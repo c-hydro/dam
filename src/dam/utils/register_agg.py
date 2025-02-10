@@ -13,6 +13,7 @@ def as_agg_function(allow_overlap = False):
 
             return func(input, input_agg, this_agg, **kwargs)
 
+        wrapper.__name__ = func.__name__
         AGG_FUNCTIONS[func.__name__] = wrapper
         return wrapper
     return decorator
