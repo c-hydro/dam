@@ -12,20 +12,12 @@ class DAMProcessor:
                  args: dict = {},
                  output: Dataset = None,
                  wf_options: dict = {}) -> None:
+        
         self.S_break_point = False
-
-        ds_args = {}
-        static_args = {}
-        for arg_name, arg_value in args.items():
-            if isinstance(arg_value, Dataset):
-                if not arg_value.is_static:
-                    ds_args[arg_name] = arg_value
-                else:
-                    static_args[arg_name] = arg_value.get_data()
-            else:
-                static_args[arg_name] = arg_value
-
         self.funcname = function.__name__
+
+        ds_args, static_args = self.get_args(args)
+
         self.function = partial(function, **static_args)
         self.ds_args = ds_args
         self.input = input
@@ -63,7 +55,12 @@ class DAMProcessor:
 
         input_options = self.input_options
         if 'tile' not in kwargs:
-            all_tiles = self.input.tile_names if input_options['break_on_missing_tiles'] else self.input.find_tiles(time, **kwargs)
+            if input_options['break_on_missing_tiles']:
+                all_tiles = self.input.tile_names
+            else:
+                all_tiles = self.input.find_tiles(time, **kwargs)
+                if len(all_tiles) == 0:
+                    all_tiles = ['__tile__']
             if not input_options['tiles']:
                 for tile in all_tiles:
                     self.run(time, tile = tile, **kwargs)
@@ -89,3 +86,18 @@ class DAMProcessor:
                 self.output.tile_names.append(this_tile_name)
         else:
             self.output.write_data(output, time, metadata = metadata, **kwargs)
+
+    @staticmethod
+    def get_args(args: dict) -> tuple:
+        ds_args = {}
+        static_args = {}
+        for arg_name, arg_value in args.items():
+            if isinstance(arg_value, Dataset):
+                if not arg_value.is_static:
+                    ds_args[arg_name] = arg_value
+                else:
+                    static_args[arg_name] = arg_value.get_data()
+            else:
+                static_args[arg_name] = arg_value
+        
+        return ds_args, static_args
