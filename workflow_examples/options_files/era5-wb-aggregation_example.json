@@ -1,0 +1,36 @@
+{
+    "TAGS" : {
+        "DATA_in"  : "sample_data/era5-wb_sample", 
+        "DATA_out" : "output/era5-wb"
+    },
+    "DATASETS":{
+        "__defaults__" : {"type" : "local"},
+        "wb_1d" : {
+            "path" : "{DATA_in}/%Y",
+            "filename" : "ERA5-PminusPET1d_ITA-SA_%Y%m%d.tif"
+        },
+        "wb_10d_agg" : {
+            "path" : "{DATA_out}/ITA-SA/{agg_window}/%Y",
+            "filename" : "ERA5-PminusPET{agg_window}_ITA-SA_%Y%m%d.tif"
+        },
+        "bounds" : {
+            "path" : "sample_data/aux",
+            "filename" : "SHAPE_ITA-SA.geojson"
+        }
+    },
+    "DAM_WORKFLOW":{
+        "input" : "{DATASETS.wb_1d}",
+        "output": "{DATASETS.wb_10d_agg}",
+        "options": {
+            "intermediate_output": "Tmp",
+            "tmp_dir": "tmp"
+        },
+        "process_list":[
+            {"function": "aggregate_times",
+                "agg_step"  : "10d",
+                "agg_window": ["3m", "6m", "1m", "9m", "12m"],
+                "agg_func"  : "sum"
+            }
+        ]
+    }
+}
