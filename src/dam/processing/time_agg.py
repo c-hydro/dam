@@ -29,16 +29,17 @@ def mean(input: list[xr.DataArray],
          this_agg: TimeRange,
          na_ignore = False,
          **kwargs) -> xr.DataArray:
-     
-     all_inputs = np.stack(input, axis = 0)
 
+     weights = calc_overlap(this_agg, input_agg)
+     weighted_input = [i * w for i, w in zip(input, weights)]
+
+     all_inputs = np.stack(weighted_input, axis = 0)
+     
      if na_ignore:
-          sum_data = np.nansum(all_inputs, axis = 0)
-          count_data = np.sum(~np.isnan(all_inputs), axis = 0)
-          mean_data = sum_data / count_data
+          mean_data = np.nansum(all_inputs, axis = 0)
+          mean_data = np.where(np.all(np.isnan(all_inputs), axis = 0), np.nan, mean_data)
      else:
-          sum_data = np.sum(all_inputs, axis = 0)
-          mean_data = sum_data / len(input)
+          mean_data = np.sum(all_inputs, axis = 0)
      
      mean_da = xr.DataArray(mean_data, coords = input[0].coords, dims = input[0].dims)
 
