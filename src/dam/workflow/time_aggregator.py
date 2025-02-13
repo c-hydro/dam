@@ -103,15 +103,10 @@ class DAMAggregator(DAMProcessor):
             return
 
         agg_range = time.agg_range
-        relevant_times = self.input.get_times(agg_range, **kwargs)
-        if len(relevant_times) == 0:
+        relevant_ts = self.input.get_timesteps(agg_range, **kwargs)
+        if len(relevant_ts) == 0:
             return
 
-        input_timestep = self.input.estimate_timestep(relevant_times)
-        if input_timestep is None:
-            return
-        
-        relevant_ts = [input_timestep.from_date(t) for t in relevant_times]
         if relevant_ts[0].agg_range.start > time.agg_range.start:
             return
 
@@ -119,7 +114,7 @@ class DAMAggregator(DAMProcessor):
         ds_args    = {arg_name: [arg.get_data(t, **kwargs) for t in relevant_ts] for arg_name, arg in self.ds_args.items()}
         
         #relevant_times = [(t.agg_range.start, t.agg_range.end) for t in relevant_ts]
-        output = self.function(input        = input_data,
+        output = self.function(input     = input_data,
                                input_agg = [ts.agg_range for ts in relevant_ts],
                                this_agg  = agg_range,
                                **ds_args)
