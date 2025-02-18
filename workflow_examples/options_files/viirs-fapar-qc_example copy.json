@@ -1,0 +1,48 @@
+{
+    "TAGS" : {
+        "DATA_in"  : "sample_data/viirs-fapar_sample", 
+        "DATA_out" : "output/viirs-fapar",
+        "tile_n"   : "h18v04"
+    },
+    "DATASETS":{
+        "__defaults__" : {"type" : "local", "time_signature" : "start"},
+        "fapar_raw" : {
+            "path" : "{DATA_in}/{var}/%Y",
+            "filename" : "VIIRS-{var}_%Y%m%d_tile{tile_n}.tif"
+        },
+        "fapar_processed" : {
+            "path" : "{DATA_out}/fapar//%Y",
+            "filename" : "VIIRS-FAPAR_ITA-ER_%Y%m%d.tif"
+        },
+        "grid" : {
+            "path" : "sample_data/aux",
+            "filename" : "GRID_ITA-ER.tif"
+        }
+    },
+    "DAM_WORKFLOW":{
+        "input" : "{DATASETS.fapar_raw, var = 'FAPAR'}",
+        "output": "{DATASETS.fapar_processed}",
+        "options": {
+            "intermediate_output": "Tmp",
+            "tmp_dir": "tmp"
+        },
+        "process_list":[
+            {"function": "keep_valid_range",
+                "valid_range": [0, 100]},
+            {"function": "apply_binary_mask",
+                "mask": "{DATASETS.fapar_raw, var = 'FAPAR-QC'}",
+                "keep": {
+                    "012":  [0, 1],
+                    "3":    [0],
+                    "4567": [1, 2, 3, 4, 5, 6, 7, 8]}},
+            {"function": "match_grid",
+                "grid": "{DATASETS.grid}",
+                "resampling_method": "NearestNeighbour"},
+            {"function": "apply_raster_mask",
+                "mask": "{DATASETS.grid}"},
+            {"function": "apply_scale_factor",
+                "scale_factor": 0.01
+            }
+        ]
+    }
+}

@@ -3,7 +3,7 @@ import numpy as np
 import rioxarray as rxr
 import xarray as xr
 
-from osgeo import gdal, gdalconst
+from d3tools.errors import GDAL_ImportError
 
 def read_geotiff(filename: str | list[str], out = 'xarray', stack = True):
 
@@ -36,6 +36,10 @@ def read_geotiff(filename: str | list[str], out = 'xarray', stack = True):
             data = data.sortby(y_dim, ascending = False)
 
     elif out == 'gdal':
+        try:
+            from osgeo import gdal, gdalconst
+        except ImportError:
+            raise GDAL_ImportError('read_geotiff')
         data = gdal.Open(filename, gdalconst.GA_ReadOnly)
 
     elif out == 'array':
@@ -59,7 +63,7 @@ def read_geotiff_as_array(filename):
 def read_multiple_geotiffs_asXarray(tiff_file_paths):
     return read_geotiff(tiff_file_paths, out = 'xarray', stack = True)
 
-def write_geotiff(data: gdal.Dataset | xr.DataArray | np.ndarray, filename, **kwargs):
+def write_geotiff(data: xr.DataArray | np.ndarray, filename, **kwargs):
     os.makedirs(os.path.dirname(filename), exist_ok=True)
 
     if 'metadata' in kwargs:
@@ -71,15 +75,8 @@ def write_geotiff(data: gdal.Dataset | xr.DataArray | np.ndarray, filename, **kw
         nodata_value = kwargs['nodata_value']
     else:
         nodata_value = None
-
-    if isinstance(data, gdal.Dataset):
-        if metadata is not None:
-            data.SetMetadata(metadata)
-        if nodata_value is not None:
-            data.GetRasterBand(1).SetNoDataValue(nodata_value)
-        gdal.Translate(filename, data, creationOptions=['COMPRESS=LZW'])
     
-    elif isinstance(data, xr.DataArray):
+    if isinstance(data, xr.DataArray):
         if metadata is not None:
             data.attrs = metadata
         if nodata_value is not None:
@@ -98,6 +95,18 @@ def write_geotiff(data: gdal.Dataset | xr.DataArray | np.ndarray, filename, **kw
         data = np.squeeze(data)
         data_array = template.copy(data = data)
         write_geotiff(data_array, filename, **kwargs)
+
+    else:
+        try:
+            from osgeo import gdal
+        except ImportError:
+            raise GDAL_ImportError('write_geotiff')
+        if isinstance(data, gdal.Dataset):
+            if metadata is not None:
+                data.SetMetadata(metadata)
+            if nodata_value is not None:
+                data.GetRasterBand(1).SetNoDataValue(nodata_value)
+            gdal.Translate(filename, data, creationOptions=['COMPRESS=LZW'])
 
 def write_geotiff_fromXarray(data, filename):
     write_geotiff(data, filename)

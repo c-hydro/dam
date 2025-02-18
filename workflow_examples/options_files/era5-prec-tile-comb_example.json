@@ -1,0 +1,34 @@
+{
+    "TAGS" : {
+        "DATA_in"  : "sample_data/era5-prec-tiles_sample", 
+        "DATA_out" : "output/era5-prec"
+    },
+    "DATASETS":{
+        "__defaults__" : {"type" : "local"},
+        "prec_tiles" : {
+            "path" : "{DATA_in}/tile{tile}/%Y",
+            "filename" : "ERA5-PREC10d_tile{tile}_%Y%m%d.tif"
+        },
+        "prec_global" : {
+            "path" : "{DATA_out}/global/%Y",
+            "filename" : "ERA5-PREC10d_global_%Y%m%d.tif"
+        },
+        "mask" : {
+            "path" : "sample_data/aux",
+            "filename" : "GRID_global-land_025dd.tif"
+        }
+    },
+    "DAM_WORKFLOW":{
+        "input" : "{DATASETS.prec_tiles}",
+        "output": "{DATASETS.prec_global}",
+        "options": {
+            "intermediate_output": "Tmp",
+            "tmp_dir": "tmp"
+        },
+        "process_list":[
+            {"function": "apply_raster_mask",
+                "mask": "{DATASETS.mask}"},
+            {"function": "combine_tiles"}
+        ]
+    }
+}

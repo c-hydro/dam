@@ -1,7 +1,10 @@
 import xarray as xr
 import rioxarray as rxr
 import rasterio
-import dask
+import geopandas as gdp
+
+from d3tools.spatial.space_utils import clip_xarray
+from d3tools.errors import GDAL_ImportError
 
 from typing import Optional
 import numpy as np
@@ -9,7 +12,6 @@ import tempfile
 import os
 
 from ..utils.register_process import as_DAM_process
-from ..tools.spatial.space_utils import clip_xarray
 
 _resampling_methods = {
     'NearestNeighbour': 0,
@@ -57,12 +59,15 @@ def match_grid(input: xr.DataArray,
 
 @as_DAM_process(input_type='xarray', output_type='xarray', continuous_space = False)
 def clip_to_bounds(input: xr.DataArray,
-                   bounds: tuple[float, float, float, float]|xr.DataArray,
+                   bounds: tuple[float, float, float, float]|xr.DataArray|gdp.GeoDataFrame,
                    ) -> xr.DataArray:
 
     if isinstance(bounds, xr.DataArray):
         bounds_da = bounds
         bounds = bounds_da.rio.bounds()
+    elif isinstance(bounds, gdp.GeoDataFrame):
+        bounds_gdf = bounds
+        bounds = bounds_gdf.total_bounds
 
     input_clipped = clip_xarray(input, bounds)
     
@@ -120,8 +125,10 @@ def _match_grid_gdal(input: xr.DataArray,
                         resampling_method: str|int,
                         nodata_threshold: float,
                         nodata_value: Optional[float]) -> xr.DataArray:
-    
-    from osgeo import gdal, gdalconst
+    try:
+        from osgeo import gdal, gdalconst
+    except ImportError:
+        raise GDAL_ImportError('match_grid')
 
     _resampling_methods_gdal = ['NearestNeighbour', 'Bilinear',
                                 'Cubic', 'CubicSpline',

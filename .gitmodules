@@ -1,3 +1,0 @@
-[submodule "dam/tools"]
-	path = dam/tools
-	url = https://github.com/c-hydro/d3tools.git

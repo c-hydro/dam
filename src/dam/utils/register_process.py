@@ -1,10 +1,11 @@
 import xarray as xr
 import rioxarray as rxr
-from osgeo import gdal
 import tempfile
 import os
 
 from typing import Iterable
+
+from d3tools.errors import GDAL_ImportError
 
 global DAM_PROCESSES
 DAM_PROCESSES = {}
@@ -34,6 +35,7 @@ def as_DAM_process(input_type: str = 'xarray', output_type: str = 'xarray', **kw
             elif output_type == 'file':
                 # Add your output validation logic here
                 result = file_to_xarray(result)
+                
             return result
         
         if output_type in ['tif', 'tiff', 'gdal', 'xarray', 'file']:
@@ -84,7 +86,12 @@ def file_to_xarray(filename: str) -> xr.DataArray:
     return rxr.open_rasterio(filename)
 
 @with_list_input
-def xarray_to_gdal(data_array: xr.DataArray) -> gdal.Dataset:
+def xarray_to_gdal(data_array: xr.DataArray) -> 'gdal.Dataset':
+    try: 
+        from osgeo import gdal
+    except ImportError:
+        raise GDAL_ImportError
+    
     temp_file = xarray_to_file(data_array)
     
     # Open the temporary file with GDAL
@@ -96,7 +103,12 @@ def xarray_to_gdal(data_array: xr.DataArray) -> gdal.Dataset:
     return gdal_dataset
 
 @with_list_input
-def gdal_to_xarray(dataset: gdal.Dataset) -> xr.DataArray:
+def gdal_to_xarray(dataset: 'gdal.Dataset') -> xr.DataArray:
+    try:
+        from osgeo import gdal
+    except ImportError:
+        raise GDAL_ImportError
+
     # Create a temporary file
     temp_file = tempfile.NamedTemporaryFile(suffix='.tif', delete=False)
     temp_file.close()
