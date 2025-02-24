@@ -92,13 +92,16 @@ def apply_binary_mask(input: xr.DataArray,
 @as_DAM_process(input_type = 'xarray', output_type = 'xarray')
 def apply_raster_mask(input: xr.DataArray,
                       mask: xr.DataArray,
-                      filter_values: list[float|int] = [],
+                      filter_values: list[float|int]|str = [],
                       nodata_value: Optional[float|int] = None,
                       ) -> xr.DataArray:
     """
     Apply a raster map to the input. The raster map is a DataArray with the same shape as the input, where each value corresponds to a category.
     The input is masked (set to nodata_value) where the raster map has the filter_values.
     """
+    if isinstance(filter_values, str) and filter_values.lower() == 'none':
+        return input
+
     data = input
     mask_data = mask
 
