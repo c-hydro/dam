@@ -42,15 +42,15 @@ def keep_valid_range(input: xr.DataArray,
 @as_DAM_process(input_type = 'xarray', output_type = 'xarray')
 def apply_binary_mask(input: xr.DataArray,
                       mask: xr.DataArray,
-                      keep: dict[str, list[int]],
+                      keep: list[tuple[list[int]]],
                       nodata_value: Optional[float|int] = None,
                       get_masks: bool = False
                       ) -> xr.DataArray|tuple[xr.DataArray, list[xr.DataArray]]:
     """
     Apply a bitwise mask to the input. These are for example the QA flags of MODIS and VIIRS products.
-    The rules are defined in a dictionary called keep, where the key is bit numbers in string format and the value is a list of values that should be kept.
-    e.g. keep = {'0':[0,1], '1':[0]} means that the first bit should be 0 or 1 and the second bit should be 0.
-         keep = {'01':[2,3], '2':[0]} means that the first two bits should be 2 or 3 and the third bit should be 0.
+    The rules are defined in a list a tuples (or lists) called keep, in each tuple, the first element is a list of bit numbers, the second is the values to keep for those bits.
+    e.g. keep = [([0],  [0,1]), ([1],[0])] means that the first bit should be 0 or 1 and the second bit should be 0.
+         keep = [([0,1],[2,3]), ([2],[0])} means that the first two bits should be 2 or 3 and the third bit should be 0.
     
     note that the bits are counted from right to left, starting from 0.
     for an 8-bit number, the bits are numbered from 0 to 7: 76543210
@@ -65,9 +65,9 @@ def apply_binary_mask(input: xr.DataArray,
     # get the flag info and the values to keep from the keep dictionary
     flag_info = {}
     keep_values = {}
-    for i, key in enumerate(keep.keys()):
-        flag_info[f'f{i}'] = [int(v) for v in key]
-        keep_values[f'f{i}'] = keep[key]
+    for i, rule in enumerate(keep):
+        flag_info[f'f{i}'] = rule[0]
+        keep_values[f'f{i}'] = rule[1]
 
     # get the number of bits from the data type of the mask
     num_bits = np.iinfo(mask.dtype).bits
