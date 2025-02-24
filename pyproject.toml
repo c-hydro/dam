@@ -23,7 +23,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "d3tools@git+https://github.com/c-hydro/d3tools@handle_cases",
+    "d3tools@git+https://github.com/c-hydro/d3tools",
     "numpy>=1.21.5",
     "xarray>=2024.3.0",
     "astropy>=6.1.2",
@@ -43,10 +43,10 @@ Repository = "https://github.com/c-hydro/dam"
 
 # dependencies for creating thumbnails
 thumbnails = [
-    "d3tools[thumbnails]@git+https://github.com/c-hydro/d3tools@handle_cases"
+    "d3tools[thumbnails]@git+https://github.com/c-hydro/d3tools"
 ]
 
 # dependencies for reading and writing remote data
 remote-data = [
-    "d3tools[remote-data]@git+https://github.com/c-hydro/d3tools@handle_cases"
+    "d3tools[remote-data]@git+https://github.com/c-hydro/d3tools"
 ]
