@@ -149,9 +149,6 @@ class DAMWorkflow:
             if type == 'linear':
                 processes = [self._processes[i] for i in group]
                 output = self._run_linear(processes, this_time, input)
-            elif type == 'tiling':
-                process = self._processes[group]
-                output = self._run_tiled(process, this_time, input)
             elif type == 'aggregator':
                 process = self._processes[group]
                 output = self._run_aggregator(process, this_time, input)
@@ -206,9 +203,9 @@ class DAMWorkflow:
 
             process.input = input if i == 0 else processes[i-1].output
             if process.output is None:
-                process.output = self.make_output(input, process, output_tags)
+                process.output = self.make_output(process, output_tags)
 
-        timesteps = input.get_timesteps(time, **case.tags)
+        timesteps = input.get_timesteps(time)
         for ts in timesteps:
             for case_tree, t_processes in zip(case_trees, tree_processes):
                 for case_id, case in case_tree[0].items():
@@ -220,13 +217,6 @@ class DAMWorkflow:
         output_options = case_trees[-1].options[-1]
 
         return {'ds': output, 'options': output_options}
-
-    def _run_tiled(self, process, time, input) -> dict:
-
-        input_options = input['options']
-        input = input['ds']
-
-        pass
 
     def _run_aggregator(self, process, time, input) -> dict:
 
@@ -246,8 +236,9 @@ class DAMWorkflow:
                 if tag in args:
                     output_tags.add(tag)
 
+        process.input = input
         if process.output is None:
-            process.output = self.make_output(input, process, output_tags)
+            process.output = self.make_output(process, output_tags)
 
         output = process.output.copy()
 
@@ -269,10 +260,10 @@ class DAMWorkflow:
                 print(f'Error cleaning up temporary directory: {e}')
 
     def make_output(self,
-                    input: Dataset,
                     process: Processor,
                     tags: Sequence) -> Dataset:
 
+        input = process.input
         input_pattern = input.key_pattern
         root_in, ext_in = os.path.splitext(input_pattern)
         ext_out = process.output_ext or ext_in[1:]
