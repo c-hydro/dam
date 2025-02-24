@@ -21,8 +21,14 @@ def combine_tiles(inputs: list[str]|list['gdal.Dataset'],
 
     if num_cpus is None:
         num_cpus = 'ALL_CPUS'
-
-    out_ds = gdal.Warp('', inputs, format = 'MEM', options=[f'NUM_THREADS={num_cpus}'], multithread=True)
+ 
+    warp_options = gdal.WarpOptions(
+        format='MEM',
+        multithread=True,
+        warpOptions=[f'NUM_THREADS={num_cpus}']
+    )
+ 
+    out_ds = gdal.Warp('', inputs, options=warp_options)
 
     return out_ds
 
