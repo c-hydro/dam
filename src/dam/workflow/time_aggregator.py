@@ -45,10 +45,6 @@ class TimeAggregator(Processor):
             else:
                 self.input = raw_input
 
-            try: 
-                print(self.input.timestep.agg_window)
-            except:
-                pass
             self.run_singlewindow(run_time, this_window_args, this_window_tags)
 
     def run_singlewindow(self, timerange: TimeRange, args: dict, tags: dict) -> None:
@@ -67,8 +63,8 @@ class TimeAggregator(Processor):
             relevant_ts = self.input.get_timesteps(agg_range, **tags)
 
             if len(relevant_ts) == 0 or relevant_ts[0].agg_range.start > ts.agg_range.start:
-                return
-
+                continue
+            
             input_data = [self.input.get_data(t, **tags) for t in relevant_ts]
             input_agg = [ts.agg_range for ts in relevant_ts]
 
