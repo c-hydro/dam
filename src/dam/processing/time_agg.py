@@ -28,20 +28,37 @@ def mean(input: list[xr.DataArray],
          input_agg: list[TimeRange],
          this_agg: TimeRange,
          na_ignore = False,
+         nan_threshold = 0.5,
          **kwargs) -> xr.DataArray:
 
-     weights = calc_overlap(this_agg, input_agg)
-     weighted_input = [i * w for i, w in zip(input, weights)]
+     weights       = np.array(calc_overlap(this_agg, input_agg))
+     all_inputs    = np.stack(input, axis = 0)
 
-     all_inputs = np.stack(weighted_input, axis = 0)
+     # multiply each data in the brick by the weight, b is the band of the raster (which is always 1)
+     weighted_data = np.einsum('i,ibjk->ibjk', weights, all_inputs)
      
+     # sum all the weighted data and divide by the total weight, protecting nans
+     mask = np.isfinite(weighted_data) # <- this is a mask of all the nans in the weighted data
+     weights_3d = np.broadcast_to(weights[:, np.newaxis, np.newaxis, np.newaxis], weighted_data.shape)
+     selected_weights = np.where(mask, weights_3d, 0)
+     total_weights = np.sum(selected_weights, axis=0)
+
+     # sum all the weighted data
      if na_ignore:
-          mean_data = np.nansum(all_inputs, axis = 0)
-          mean_data = np.where(np.all(np.isnan(all_inputs), axis = 0), np.nan, mean_data)
+          weighted_sum = np.nansum(weighted_data, axis = 0)
      else:
-          mean_data = np.sum(all_inputs, axis = 0)
+          weighted_sum = np.sum(weighted_data, axis = 0)
      
-     mean_da = xr.DataArray(mean_data, coords = input[0].coords, dims = input[0].dims)
+     # divide by the total weights
+     # to avoid division by zero, we set the zero weights to nan right away
+     weighted_sum  = np.where(total_weights < 1e-6, np.nan, weighted_sum)
+     total_weights = np.where(total_weights < 1e-6, 1e-6, total_weights)
+     weighted_mean = weighted_sum / total_weights
+
+     # Remove where the total sum of weights is less than nan_threshold x 100% the total weights
+     weighted_mean = np.where(total_weights/np.sum(weights) <= nan_threshold, np.nan, weighted_mean)
+     
+     mean_da = xr.DataArray(weighted_mean, coords = input[0].coords, dims = input[0].dims)
 
      return mean_da
 
