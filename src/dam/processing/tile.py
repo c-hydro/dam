@@ -21,15 +21,19 @@ def combine_tiles(inputs: list[str]|list['gdal.Dataset'],
 
     if num_cpus is None:
         num_cpus = 'ALL_CPUS'
-
-    out_ds = gdal.Warp('', inputs, format = 'MEM', options=[f'NUM_THREADS={num_cpus}'], multithread=True)
+ 
+    warp_options = gdal.WarpOptions(
+        format='MEM',
+        multithread=True,
+        warpOptions=[f'NUM_THREADS={num_cpus}']
+    )
+ 
+    out_ds = gdal.Warp('', inputs, options=warp_options)
 
     return out_ds
 
-@as_DAM_process(input_type = 'xarray', output_type = 'xarray', output_tiles = True, tile_name_attr = 'tile_name')
-def split_in_tiles(input: str,
-                   tile_size: Optional[int | tuple[int, int]] = None,
-                   n_tiles: Optional[int | tuple[int, int]] = None,
+@as_DAM_process(input_type = 'xarray', output_type = 'xarray', output_tiles = True)
+def split_in_tiles(input: str, n_tiles: int | tuple[int, int],
                    tile_names = '{i}', start = 'bl', dir = 'vh') -> Generator[xr.DataArray, None, None]:
     """
     Split a raster into tiles.
@@ -63,16 +67,11 @@ def split_in_tiles(input: str,
     band, ysize, xsize = data.values.shape
 
     # figure out the input parameters
-    if tile_size is not None:
-        if isinstance(tile_size, int):
-            tile_size = (tile_size, tile_size)
-        tile_xsize, tile_ysize = tile_size
-    elif n_tiles is not None:
-        if isinstance(n_tiles, int):
-            n_tiles = (n_tiles, n_tiles)
-        nx, ny = n_tiles
-        tile_xsize = xsize // nx
-        tile_ysize = ysize // ny
+    if isinstance(n_tiles, int):
+        n_tiles = (n_tiles, n_tiles)
+    nx, ny = n_tiles
+    tile_xsize = xsize // nx
+    tile_ysize = ysize // ny
 
     xsizes = optimal_sizes(xsize, tile_xsize)
     ysizes = optimal_sizes(ysize, tile_ysize)
@@ -107,19 +106,12 @@ def split_in_tiles(input: str,
         tile_data = tile_data.rename({'y': ydim, 'x': xdim})
         
         return tile_data
-
-    def get_tile_name(hi, vi):
-        sub_values = defaultdict(str, i=i, hi=hi, vi=vi)
-        tile_name = tile_names.format_map(sub_values)
-        return tile_name
             
     i = 0
     if dir == 'hv':
         for vi in range(ny):
             for hi in range(nx):
                 tile_data = make_tile(hi, vi)
-                tile_name = get_tile_name(hi, vi)
-                tile_data.attrs['tile_name'] = tile_name
                 
                 i += 1
                 yield tile_data
@@ -127,8 +119,6 @@ def split_in_tiles(input: str,
         for hi in range(nx):
             for vi in range(ny):
                 tile_data = make_tile(hi, vi)
-                tile_name = get_tile_name(hi, vi)
-                tile_data.attrs['tile_name'] = tile_name
                 
                 i += 1
                 yield tile_data

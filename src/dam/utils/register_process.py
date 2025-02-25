@@ -3,7 +3,7 @@ import rioxarray as rxr
 import tempfile
 import os
 
-from typing import Iterable
+from typing import Sequence, Generator
 
 from d3tools.errors import GDAL_ImportError
 
@@ -58,7 +58,7 @@ def as_DAM_process(input_type: str = 'xarray', output_type: str = 'xarray', **kw
 
 def with_list_input(func):
     def wrapper(input, *args, **kwargs):
-        if isinstance(input, Iterable) and not isinstance(input, str) and not isinstance(input, xr.DataArray):
+        if isinstance(input, Sequence) or isinstance(input, Generator):
             return [func(i, *args, **kwargs) for i in input]
         else:
             return func(input, *args, **kwargs)

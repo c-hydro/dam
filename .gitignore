@@ -40,3 +40,4 @@ venv.bak/
 sample_data/*
 output/*
 workflow_examples/old/*
+tmp/*
