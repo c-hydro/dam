@@ -2,6 +2,7 @@ from astropy.convolution import convolve, Gaussian2DKernel
 from typing import Optional
 import numpy as np
 import xarray as xr
+import warnings
 
 from ..utils.register_process import as_DAM_process
 
@@ -18,19 +19,28 @@ def gaussian_smoothing(input: xr.DataArray,
     input file can be removed with the parameter rm_input.
     """
 
+    if stddev_kernel == 0:
+        return input
+
     # read map
     data = input
 
     if nodata_value is None:
         nodata_value = data.attrs.get('_FillValue')
 
-    # execute smoothing
-    data = np.squeeze(data)
     kernel = Gaussian2DKernel(x_stddev=stddev_kernel)
-    data.values = convolve(data.values, kernel)
-
+    # execute smoothing
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+        original_shape = data.shape
+        data = np.squeeze(data)
+        smooth_data = convolve(data, kernel, nan_treatment = 'interpolate', preserve_nan = True)
+        
     # write output
+    reshaped = np.reshape(smooth_data, original_shape)
+    data.values = reshaped
     data = data.rio.write_nodata(nodata_value)
+
     return data
 
 # -------------------------------------------------------------------------------------
