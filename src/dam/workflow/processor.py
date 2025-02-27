@@ -33,7 +33,11 @@ class Processor:
 
     def run(self, time: dt.datetime|TimeStep, args: dict, tags: dict) -> None:
         
-        input_data = self.input.get_data(time, **tags)
+        if self.input.check_data(time, **tags):
+            input_data = self.input.get_data(time, **tags)
+        else:
+            input_data = self.input.get_data(time, **args)
+
         these_args = {}
         for arg_name in self.args:
             arg_value = args.get(f'{self.pid}.{arg_name}', self.args[arg_name])

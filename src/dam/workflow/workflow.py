@@ -6,6 +6,7 @@ from d3tools.data.local_dataset import LocalDataset
 from d3tools.timestepping import TimeRange, TimeWindow
 from d3tools.config.options import Options
 from d3tools.cases import CaseManager
+from d3tools.exit import rm_at_exit
 
 import datetime as dt
 from typing import Optional, Sequence
@@ -58,7 +59,8 @@ class DAMWorkflow:
             tmp_dir = self.options.get('tmp_dir', tempfile.gettempdir())
             os.makedirs(tmp_dir, exist_ok = True)
             self.tmp_dir = tempfile.mkdtemp(dir = tmp_dir)
-
+            rm_at_exit(self.tmp_dir)
+            
     @classmethod
     def from_options(cls, options: Options|dict) -> 'DAMWorkflow':
         if isinstance(options, dict): options = Options(options)
