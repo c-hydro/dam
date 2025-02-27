@@ -22,8 +22,10 @@ class TileMerger(Processor):
 
         if self.input.check_data(time, tile = self.input_tiles[0], **tags):
             input_data = [self.input.get_data(time, tile = t, **tags) for t in self.input_tiles]
-        else:
+        elif self.input.check_data(time, tile = self.input_tiles[0], **args):
             input_data = [self.input.get_data(time, tile = t, **args) for t in self.input_tiles]
+        else:
+            return ##TODO: add a warning or something
 
         these_args = {}
         for arg_name in self.args:
@@ -62,8 +64,10 @@ class TileSplitter(Processor):
 
         if self.input.check_data(time, **tags):
             input_data = self.input.get_data(time, **tags)
-        else:
+        elif self.input.check_data(time, **args):
             input_data = self.input.get_data(time, **args)
+        else:
+            return ##TODO: add a warning or something
             
         these_args = {}
         for arg_name in self.args:
