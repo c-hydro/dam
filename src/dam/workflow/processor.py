@@ -35,8 +35,10 @@ class Processor:
         
         if self.input.check_data(time, **tags):
             input_data = self.input.get_data(time, **tags)
-        else:
+        elif self.input.check_data(time, **args):
             input_data = self.input.get_data(time, **args)
+        else:
+            return ##TODO: add a warning or something
 
         these_args = {}
         for arg_name in self.args:
