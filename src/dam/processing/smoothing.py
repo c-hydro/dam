@@ -32,8 +32,8 @@ def gaussian_smoothing(input: xr.DataArray,
     # execute smoothing
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
-        original_shape = data.shape
         data = np.squeeze(data)
+        original_shape = data.shape
         smooth_data = convolve(data, kernel, nan_treatment = 'interpolate', preserve_nan = True)
         
     # write output
