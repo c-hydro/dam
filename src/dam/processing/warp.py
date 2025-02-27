@@ -5,6 +5,7 @@ import geopandas as gdp
 
 from d3tools.spatial.space_utils import clip_xarray
 from d3tools.errors import GDAL_ImportError
+from d3tools.exit import rm_at_exit
 
 from typing import Optional
 import numpy as np
@@ -152,6 +153,7 @@ def _match_grid_gdal(input: xr.DataArray,
 
     # save input and grid to temporary files
     with tempfile.TemporaryDirectory() as tmpdir:
+        rm_at_exit(tmpdir)
         input_path = f'{tmpdir}/input.tif'
         grid_path = f'{tmpdir}/grid.tif'
         input.rio.to_raster(input_path)
