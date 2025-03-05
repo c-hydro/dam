@@ -33,10 +33,11 @@ class Processor:
 
     def run(self, time: dt.datetime|TimeStep, args: dict, tags: dict) -> None:
         
+        arg_str = {k:str(args.get(k, tags[k])) for k in tags}
         if self.input.check_data(time, **tags):
             input_data = self.input.get_data(time, **tags)
-        elif self.input.check_data(time, **args):
-            input_data = self.input.get_data(time, **args)
+        elif self.input.check_data(time, **arg_str):
+            input_data = self.input.get_data(time, **arg_str)
         else:
             return ##TODO: add a warning or something
 
@@ -50,7 +51,7 @@ class Processor:
 
         output = self.function(input_data, **these_args)
 
-        str_tags = {k.replace(f'{self.pid}.', ''): v for k, v in tags.items() if self.pid in k}
+        str_tags = {k.replace(f'{self.pid}.', ''): v for k, v in tags.items()}
         if 'tile' in tags: str_tags['tile'] = tags['tile']
         tag_str = ', '.join([f'{k}={v}' for k, v in str_tags.items()])
         print(f'{self.pid} - {time}, {tag_str}')

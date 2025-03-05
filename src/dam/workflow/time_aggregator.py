@@ -63,7 +63,8 @@ class TimeAggregator(Processor):
             relevant_ts = self.input.get_timesteps(agg_range, **tags)
             if len(relevant_ts) == 0: # if there is no data in this aggregation time
                 # try using the args instead of the tags
-                relevant_ts = self.input.get_timesteps(agg_range, **args)
+                arg_str = {k:str(args.get(k, tags[k])) for k in tags}
+                relevant_ts = self.input.get_timesteps(agg_range, **arg_str)
                 if len(relevant_ts) == 0: # if there is still no data in this aggregation time
                     # skip it
                     continue # TODO: add a warning
@@ -94,7 +95,7 @@ class TimeAggregator(Processor):
         
             output = self.agg_function(input_data, input_agg = input_agg, this_agg  = agg_range, **these_args)
             
-            str_tags = {k.replace(f'{self.pid}.', ''): v for k, v in tags.items() if self.pid in k}
+            str_tags = {k.replace(f'{self.pid}.', ''): v for k, v in tags.items()}
             tag_str = ', '.join([f'{k}={v}' for k, v in str_tags.items()])
             print(f'{self.pid} - {ts}, {tag_str}')
 
