@@ -258,3 +258,32 @@ class DAMWorkflow:
             output_ds._template = {}
 
         return output_ds
+    
+    def get_last_ts(self, **kwargs) -> tuple[TimeRange]:
+        """
+        Get the last available timesteps of the input and output datasets, based on input and output cases
+        """
+
+        input_cases = self.case_tree[0]
+        last_ts_input = None
+        for case in input_cases.values():
+            now = None if last_ts_input is None else last_ts_input.end + dt.timedelta(days = 1)
+            input = self.input.get_last_ts(now = now, **case.tags, **kwargs)
+            if input is not None:
+                last_ts_input = input if last_ts_input is None else min(input, last_ts_input)
+            else:
+                last_ts_input = None
+                break
+
+        output_cases = self.case_tree[-1]
+        last_ts_output = None
+        for case in output_cases.values():
+            now = None if last_ts_output is None else last_ts_output.end + dt.timedelta(days = 1)
+            output = self.output.get_last_ts(now = now, **case.tags, **kwargs)
+            if output is not None:
+                last_ts_output = output if last_ts_output is None else min(output, last_ts_output)
+            else:
+                last_ts_output = None
+                break
+
+        return last_ts_input, last_ts_output
