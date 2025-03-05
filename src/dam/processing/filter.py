@@ -92,7 +92,7 @@ def apply_binary_mask(input: xr.DataArray,
 @as_DAM_process(input_type = 'xarray', output_type = 'xarray')
 def apply_raster_mask(input: xr.DataArray,
                       mask: xr.DataArray,
-                      filter_values: list[float|int]|str = [],
+                      filter_values: list[float|int]|str = None,
                       nodata_value: Optional[float|int] = None,
                       ) -> xr.DataArray:
     """
@@ -101,6 +101,8 @@ def apply_raster_mask(input: xr.DataArray,
     """
     if isinstance(filter_values, str) and filter_values.lower() == 'none':
         return input
+    elif filter_values is None:
+        filter_values = []
 
     data = input
     mask_data = mask
@@ -112,8 +114,7 @@ def apply_raster_mask(input: xr.DataArray,
     mask_nodata = mask_data.attrs.get('_FillValue')
     mask_data = mask_data.rio.reproject_match(data)
 
-    filter_values.append(mask_nodata)
-    for value in filter_values:
+    for value in filter_values + [mask_nodata]:
         data = data.where(~np.isclose(mask_data, value, equal_nan=True), other=nodata_value)
 
     data = data.rio.write_nodata(nodata_value)
