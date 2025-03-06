@@ -20,10 +20,11 @@ class TileMerger(Processor):
 
     def run(self, time: dt.datetime|TimeStep, args: dict, tags: dict) -> None:
 
+        arg_str = {k:str(args.get(k, tags[k])) for k in tags}
         if self.input.check_data(time, tile = self.input_tiles[0], **tags):
             input_data = [self.input.get_data(time, tile = t, **tags) for t in self.input_tiles]
-        elif self.input.check_data(time, tile = self.input_tiles[0], **args):
-            input_data = [self.input.get_data(time, tile = t, **args) for t in self.input_tiles]
+        elif self.input.check_data(time, tile = self.input_tiles[0], *arg_str):
+            input_data = [self.input.get_data(time, tile = t, **arg_str) for t in self.input_tiles]
         else:
             return ##TODO: add a warning or something
 
@@ -37,7 +38,7 @@ class TileMerger(Processor):
 
         output = self.function(input_data, **these_args)
 
-        str_tags = {k.replace(f'{self.pid}.', ''): v for k, v in tags.items() if self.pid in k}
+        str_tags = {k.replace(f'{self.pid}.', ''): v for k, v in tags.items()}
         tag_str = ', '.join([f'{k}={v}' for k, v in str_tags.items()])
         print(f'{self.pid} - {time}, {tag_str}')
 
@@ -62,10 +63,11 @@ class TileSplitter(Processor):
     
     def run(self, time: dt.datetime|TimeStep, args: dict, tags: dict) -> None:
 
+        arg_str = {k:str(args.get(k, tags[k])) for k in tags}
         if self.input.check_data(time, **tags):
             input_data = self.input.get_data(time, **tags)
-        elif self.input.check_data(time, **args):
-            input_data = self.input.get_data(time, **args)
+        elif self.input.check_data(time, **arg_str):
+            input_data = self.input.get_data(time, **arg_str)
         else:
             return ##TODO: add a warning or something
             
@@ -79,10 +81,9 @@ class TileSplitter(Processor):
             
         output = self.function(input_data, **these_args)
 
-        str_tags = {k.replace(f'{self.pid}.', ''): v for k, v in tags.items() if self.pid in k}
+        str_tags = {k.replace(f'{self.pid}.', ''): v for k, v in tags.items()}
         tag_str = ', '.join([f'{k}={v}' for k, v in str_tags.items()])
         print(f'{self.pid} - {time}, {tag_str}')
-
         for this_output, tile_name in zip(output, self.tile_names):
             self.output.write_data(this_output, time, tile = tile_name, **tags)
     

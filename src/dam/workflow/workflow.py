@@ -14,6 +14,7 @@ import tempfile
 import os
 import shutil
 import copy
+import re
 
 class DAMWorkflow:
 
@@ -54,6 +55,9 @@ class DAMWorkflow:
         if self.input.has_tiles:
             tile_names = self.input.tile_names
             self.input_options['tile'] = dict(zip(tile_names, tile_names))
+
+        # set the input_options as the root of the case_tree
+        self.case_tree = CaseManager(self.input_options.copy())
 
         if self.options['intermediate_output'] == 'Tmp':
             tmp_dir = self.options.get('tmp_dir', tempfile.gettempdir())
@@ -96,51 +100,103 @@ class DAMWorkflow:
             pids[same_processes[0]] = f'{pid}#1'
             pid = f'{pid}#2'
         elif len(same_processes) > 1:
-            pid = f'{pid}_{len(same_processes)+1}'
+            pid = f'{pid}#{len(same_processes)+1}'
 
         this_process = make_process(function, kwargs)
         this_process.output = output
         process_list.append(this_process)
         pids.append(pid)
+        i = len(process_list)-1
+
+        self.update_tree(this_process, pid)
 
         if not this_process.T_break_point:
             if len(self.run_instructions['group_types']) > 0 and self.run_instructions['group_types'][-1] == 'linear':
-                self.run_instructions['process_groups'][-1].append(len(process_list)-1)
+                self.run_instructions['process_groups'][-1].append(i)
             else:
-                self.run_instructions['process_groups'].append([len(process_list)-1])
+                self.run_instructions['process_groups'].append([i])
                 self.run_instructions['group_types'].append('linear')
                 self.run_instructions['lookback_windows'].append(TimeWindow(0, 'd'))
-        # elif this_process.S_break_point:
-        #     self.run_instructions['process_groups'].append(len(process_list)-1)
-        #     self.run_instructions['group_types'].append('tiling')
-        #     self.run_instructions['lookback_windows'].append(TimeWindow(0, 'd'))
         elif this_process.T_break_point:
-            self.run_instructions['process_groups'].append(len(process_list)-1)
+            self.run_instructions['process_groups'].append(i)
             self.run_instructions['group_types'].append('aggregator')
             this_window = this_process.max_window
             self.run_instructions['lookback_windows'] = [max(w, this_window) for w in self.run_instructions['lookback_windows']]
             self.run_instructions['lookback_windows'].append(TimeWindow(0, 'd'))
 
-    def run(self, time: TimeRange|Sequence[dt.datetime|str]) -> None:
+    def update_tree(self, process: Processor, pid: str) -> None:
+        _args = {f'{pid}.{k}': v for k, v in process.args.items()}
+        
+        merge = None
 
-        # set the output of the last process to the output of the workflow 
-        if self.output is not None:
-            self.processes['processes'][-1].output = self.output.copy()
-        elif not hasattr(self.processes['processes'][-1], 'output') or self.processes['processes'][-1].output is None:
-            raise ValueError('No output dataset has been set.')
+        if process.tile_input:
+            merge = 'tile'
+        
+        self.case_tree.add_layer(_args, name = pid, merge = merge)
+        if process.tile_output:
+            _args = {'tile': {t:t for t in process.tile_names}}
+            self.case_tree.add_layer(_args, name = '')
+            self.processes['processes'].append(None)
+            self.processes['pids'].append('')
+        elif process.T_break_point:
+            if len(process.agg_windows) > 1:
+                _args = {f'{pid}.agg_window': process.agg_windows}
+            else:
+                _args = {}
+            self.case_tree.add_layer(_args, name = '')
+            self.processes['processes'].append(None)
+            self.processes['pids'].append('')
+
+    def run(self, time: TimeRange|Sequence[dt.datetime|str]) -> None:
 
         # get the time as a TimeRange
         time = TimeRange.from_any(time)
 
-        # add the pids to each process now that they are "final"
+        # add the pids to each process now that they are "final", as well as the inputs and outpus
         self._processes = []
-        for process, pid in zip(self.processes['processes'], self.processes['pids']):
+        for i in range(len(self.processes['processes'])):
+            process = self.processes['processes'][i]
+            
+            if process is None:
+                self._processes.append(None)
+                continue
+            
+            pid = self.processes['pids'][i]
             process.pid = pid
+            
+            # set the input:
+            k = i
+            while k>0:
+                if self._processes[k-1] is not None:
+                    process.input = self._processes[k-1].output
+                    break
+                k -= 1
+            else:
+                process.input = self.input
+
+            # set the output:
+            if process.output is None:
+                tags = self.case_tree.tags[i+1] if not (process.tile_output or process.T_break_point) else self.case_tree.tags[i+2]
+                process.output = self.make_output(process, tags)
+
             self._processes.append(process)
 
-        # get the input and the input_options
-        input_options = self.input_options.copy()
-        input         = {'ds': self.input, 'options' : input_options}
+        # set the output of the last process to be the output of the workflow
+        k = len(self._processes)
+        while k > 0:
+            p = self._processes[k-1]
+            if p is not None:
+                p.output = self.output.copy()
+                break
+            k -= 1
+
+        # for p in self._processes:
+        #     if p is None: continue
+        #     print("----------------")
+        #     print(p.pid)
+        #     print(p.input.key_pattern)
+        #     print(p.output.key_pattern)
+        #     print("----------------")
 
         # loop through the process groups and run them
         for group, type, window in zip(self.run_instructions['process_groups'],
@@ -149,117 +205,34 @@ class DAMWorkflow:
 
             this_time = time.extend(window, before = True)
             if type == 'linear':
-                processes = [self._processes[i] for i in group]
-                output = self._run_linear(processes, this_time, input)
+                self._run_linear_group(group, this_time)
             elif type == 'aggregator':
-                process = self._processes[group]
-                output = self._run_aggregator(process, this_time, input)
+                self._run_aggregator(group, this_time)
 
-            input = output
+    def _run_linear_group(self, process_n, time) -> None:
 
-    def _run_linear(self, processes, time, input) -> dict:
+        layer_n   = [p+1 for p in process_n]
+        
+        first_process = self._processes[min(process_n)]
+        timesteps = set()
+        for case in self.case_tree[min(process_n)].values():
+            timesteps.update(first_process.input.get_timesteps(time, **case.tags))
 
-        input_options = input['options']
-        case_trees = []#CaseManager(input_options)
-        tree_processes = []
-        next_args = {}
-
-        input = input['ds']
-        for i, process in enumerate(processes):
-            pid = process.pid
-            args = {f'{pid}.{k}': v for k, v in process.args.items()}
-            args.update(next_args)
-            if process.tile_input:
-                if len(case_trees) == 0:
-                    opts = input_options.copy()
-                else:
-                    opts = case_trees[-1].options[-1]
-
-                process_opts = {k: v for k, v in opts.items() if k != 'tile'}
-                tiles = input_options.get('tile', {})
-
-                new_tree = CaseManager(process_opts)
-                new_tree.add_layer(args)
-                case_trees.append(new_tree)
-                process.input_tiles = list(tiles.values())
-                tree_processes.append([process])
-            else:
-                if len(case_trees) == 0:
-                    case_trees.append(CaseManager(input_options))
-                    tree_processes.append([])
-                    
-                case_trees[-1].add_layer(args)
-                tree_processes[-1].append(process)
-
-            if process.tile_output:
-                next_args = {'tile' : {t:t for t in process.tile_names}}
-                output_tags = set(['tile'])
-            else:
-                next_args = {}
-                output_tags = set()
-
-            for case in case_trees[-1][-1].values():
-                for tag in case.tags:
-                    if tag in args:
-                        output_tags.add(tag)
-
-            process.input = input if i == 0 else processes[i-1].output
-            if process.output is None:
-                process.output = self.make_output(process, output_tags)
-
-        timesteps = input.get_timesteps(time)
+        timesteps = list(timesteps)
+        timesteps.sort()
         for ts in timesteps:
-            for case_tree, t_processes in zip(case_trees, tree_processes):
-                for case_id, case in case_tree[0].items():
-                    cases = case_tree.iterate_subtree(case_id, layer = True)
-                    for c, l in cases:
-                        t_processes[l-1].run(ts, c.options, c.tags)
+            for case, layer in self.case_tree.iterate_tree(max(layer_n), get_layer = True):
+                if layer not in layer_n: continue
+                process = self._processes[layer-1]
+                process.run(ts, case.options, case.tags)
 
-        output = processes[-1].output
-        output_options = case_trees[-1].options[-1]
+    def _run_aggregator(self, process_n, time) -> dict:
 
-        return {'ds': output, 'options': output_options}
+        layer_n   = process_n + 1 
+        process = self._processes[process_n]
 
-    def _run_aggregator(self, process, time, input) -> dict:
-
-        input_options = input['options']
-        case_tree = CaseManager(input_options)
-
-        input = input['ds']
-        windows = process.agg_windows
-
-        pid = process.pid
-        output_tags = set() if len(windows) <= 1 else set([f'{pid}.agg_window'])
-
-        args = {f'{pid}.{k}': v for k, v in process.args.items()}
-        case_tree.add_layer(args)
-        for case in case_tree[-1].values():
-            for tag in case.tags:
-                if tag in args:
-                    output_tags.add(tag)
-
-        process.input = input
-        if process.output is None:
-            process.output = self.make_output(process, output_tags)
-
-        output = process.output.copy()
-
-        for case_id, case in case_tree[0].items():
-            cases = case_tree.iterate_subtree(case_id, 1, layer = False)
-            for c in cases:
-                process.input = input.copy()
-                process.run(time, c.options, c.tags)                    
-
-        output_options = case_tree.options[-1] | {f'{process.pid}.agg_window': windows}
-
-        return {'ds': output, 'options': output_options}
-
-    def clean_up(self):
-        if hasattr(self, 'tmp_dir') and os.path.exists(self.tmp_dir):
-            try:
-                shutil.rmtree(self.tmp_dir)
-            except Exception as e:
-                print(f'Error cleaning up temporary directory: {e}')
+        for case in self.case_tree[layer_n].values():
+            process.run(time, case.options, case.tags)
 
     def make_output(self,
                     process: Processor,
@@ -268,15 +241,16 @@ class DAMWorkflow:
         input = process.input
         input_pattern = input.key_pattern
         root_in, ext_in = os.path.splitext(input_pattern)
-        ext_out = process.output_ext or ext_in[1:]
-        output_pattern = "_".join([f'{root_in}_{process.pid}'] + [f'{{{t}}}' for t in tags]) + f'.{ext_out}'
+        ext_out  = process.output_ext or ext_in[1:]
+        root_out = '%Y%m%d' + '%H' * ('%H' in root_in)
+
+        output_pattern = f'{process.pid}/' + "_".join([f'{{{t}}}' for t in tags]) + f'_{root_out}.{ext_out}'
         
         output_type = self.options['intermediate_output']
         if output_type == 'Mem':
             output_ds = MemoryDataset(key_pattern = output_pattern)
         elif output_type == 'Tmp':
-            filename = os.path.basename(output_pattern)
-            output_ds = LocalDataset(path = self.tmp_dir, filename = filename)
+            output_ds = LocalDataset(path = self.tmp_dir, filename = output_pattern)
 
         if process.continuous_space:
             output_ds._template = input._template
@@ -284,3 +258,32 @@ class DAMWorkflow:
             output_ds._template = {}
 
         return output_ds
+    
+    def get_last_ts(self, **kwargs) -> tuple[TimeRange]:
+        """
+        Get the last available timesteps of the input and output datasets, based on input and output cases
+        """
+
+        input_cases = self.case_tree[0]
+        last_ts_input = None
+        for case in input_cases.values():
+            now = None if last_ts_input is None else last_ts_input.end + dt.timedelta(days = 1)
+            input = self.input.get_last_ts(now = now, **case.tags, **kwargs)
+            if input is not None:
+                last_ts_input = input if last_ts_input is None else min(input, last_ts_input)
+            else:
+                last_ts_input = None
+                break
+
+        output_cases = self.case_tree[-1]
+        last_ts_output = None
+        for case in output_cases.values():
+            now = None if last_ts_output is None else last_ts_output.end + dt.timedelta(days = 1)
+            output = self.output.get_last_ts(now = now, **case.tags, **kwargs)
+            if output is not None:
+                last_ts_output = output if last_ts_output is None else min(output, last_ts_output)
+            else:
+                last_ts_output = None
+                break
+
+        return last_ts_input, last_ts_output

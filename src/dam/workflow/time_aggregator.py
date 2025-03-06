@@ -14,16 +14,32 @@ class TimeAggregator(Processor):
     T_break_point = True
     continuous_space = True
     output_ext = None
+    tile_input = False
+    tile_output = False
+
+    hasinput = False
+    hasoutput = False
 
     def __init__(self, args: dict) -> None:
 
         self.output = args.pop('output', None)
         self.set_args(args)
 
+    @property
+    def input(self):
+        return self._input
+    
+    @input.setter
+    def input(self, value):
+        if not self.hasinput and value is not None:
+            self.raw_input = value.copy()
+            self.hasinput = True
+        self._input = value
+
     def run(self, timerange: TimeRange, args: dict, tags: dict) -> None:
         
-        raw_input  = self.input.copy()
-        raw_output = self.output.copy()
+        raw_input  = self.raw_input.copy()
+        self.all_output = {}
 
         window_names, windows = zip(*self.agg_windows.items())
         max_window = max(windows)
@@ -40,8 +56,8 @@ class TimeAggregator(Processor):
                 input_window = max(mult_windows)
                 input_window_name = window_names[windows.index(input_window)]
                 input_window_tags = {f'{self.pid}.agg_window': input_window_name}
-                self.input = raw_output.update(**input_window_tags, inplace = False)
-                self.input.agg = input_window
+                self.input = self.all_output[input_window_name].update(**input_window_tags)
+
             else:
                 self.input = raw_input
 
@@ -55,6 +71,7 @@ class TimeAggregator(Processor):
 
         window  = args.pop(f'agg_window')
         self.output.timestep = TimeStep.from_unit(step).with_agg(window)
+        self.all_output[window] = self.output.copy()
         timesteps = timerange.get_timesteps(freq = step, agg = window)
         
         for ts in timesteps:
@@ -63,7 +80,8 @@ class TimeAggregator(Processor):
             relevant_ts = self.input.get_timesteps(agg_range, **tags)
             if len(relevant_ts) == 0: # if there is no data in this aggregation time
                 # try using the args instead of the tags
-                relevant_ts = self.input.get_timesteps(agg_range, **args)
+                arg_str = {k:str(args.get(k, tags[k])) for k in tags}
+                relevant_ts = self.input.get_timesteps(agg_range, **arg_str)
                 if len(relevant_ts) == 0: # if there is still no data in this aggregation time
                     # skip it
                     continue # TODO: add a warning
@@ -94,7 +112,7 @@ class TimeAggregator(Processor):
         
             output = self.agg_function(input_data, input_agg = input_agg, this_agg  = agg_range, **these_args)
             
-            str_tags = {k.replace(f'{self.pid}.', ''): v for k, v in tags.items() if self.pid in k}
+            str_tags = {k.replace(f'{self.pid}.', ''): v for k, v in tags.items()}
             tag_str = ', '.join([f'{k}={v}' for k, v in str_tags.items()])
             print(f'{self.pid} - {ts}, {tag_str}')
 
