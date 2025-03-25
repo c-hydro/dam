@@ -49,7 +49,7 @@ class TimeAggregator(Processor):
             run_time = timerange.extend(run_window, before = True)
 
             this_window_tags = tags | {f'{self.pid}.agg_window': window_names[i]}
-            this_window_args = args | {'agg_window' : window_names[i]}
+            this_window_args = args | {'agg_window' : windows[i]}
 
             mult_windows = [w for w in windows[0:i] if this_window.is_multiple(w)]
             if len(mult_windows) > 0:
@@ -60,7 +60,6 @@ class TimeAggregator(Processor):
 
             else:
                 self.input = raw_input
-
             self.run_singlewindow(run_time, this_window_args, this_window_tags)
 
     def run_singlewindow(self, timerange: TimeRange, args: dict, tags: dict) -> None:
@@ -69,9 +68,10 @@ class TimeAggregator(Processor):
         if step is None:
             step = self.input.estimate_timestep(**tags).unit
 
-        window  = args.pop(f'agg_window')
+        window_name  = tags.get(f'{self.pid}.agg_window')
+        window       = args.pop('agg_window', self.agg_windows[window_name])
         self.output.timestep = TimeStep.from_unit(step).with_agg(window)
-        self.all_output[window] = self.output.copy()
+        self.all_output[window_name] = self.output.copy()
         timesteps = timerange.get_timesteps(freq = step, agg = window)
         
         for ts in timesteps:
@@ -116,7 +116,7 @@ class TimeAggregator(Processor):
             tag_str = ', '.join([f'{k}={v}' for k, v in str_tags.items()])
             print(f'{self.pid} - {ts}, {tag_str}')
 
-            metadata = {'agg_method' : f'{self.agg_function_name}, {tags[f"{self.pid}.agg_window"]}'}
+            metadata = {'agg_method' : f'{self.agg_function_name}, {window_name}'}
             self.output.write_data(output, ts, metadata = metadata, **tags)
 
     def set_args(self, args: dict):
