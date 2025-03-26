@@ -131,6 +131,7 @@ class DAMWorkflow:
 
         if process.tile_input:
             merge = 'tile'
+            process.input_tiles = [t for t in self.case_tree.options[-1]['tile'].values()]
         
         self.case_tree.add_layer(_args, name = pid, merge = merge)
         if process.tile_output:

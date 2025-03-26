@@ -59,6 +59,7 @@ def mean(input: list[xr.DataArray],
      weighted_mean = np.where(total_weights/np.sum(weights) <= nan_threshold, np.nan, weighted_mean)
      
      mean_da = xr.DataArray(weighted_mean, coords = input[0].coords, dims = input[0].dims)
+     mean_da.attrs['_FillValue'] = np.nan
 
      return mean_da
 
