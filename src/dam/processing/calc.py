@@ -259,8 +259,14 @@ def combine_raster_data(input: xr.DataArray,
     result = np.where(np.isnan(result), nodata_value, result)
 
     # reshape the result to the original shape
-    result = result.reshape(input.shape)
-    return input.copy(data=result)
+    result = np.expand_dims(result, axis=0)
+    
+    # Convert back to xarray.DataArray with the same coordinates and dimensions
+    output = xr.DataArray(result,
+                          dims=input.dims,
+                          coords=input.coords,
+                          name="combined_map")
+    return output
 
 # -------------------------------------------------------------------------------------
 # Method to extract residuals from xr.DataArray based on lat-lon and values
