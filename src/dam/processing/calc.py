@@ -266,6 +266,9 @@ def combine_raster_data(input: xr.DataArray,
                           dims=input.dims,
                           coords=input.coords,
                           name="combined_map")
+    
+    output.attrs['_FillValue'] = np.nan
+
     return output
 
 # -------------------------------------------------------------------------------------
