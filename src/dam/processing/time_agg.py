@@ -12,20 +12,27 @@ def sum(input: list[xr.DataArray],
         input_agg: list[TimeRange],
         this_agg: TimeRange,
         na_ignore = False,
-        nan_threshold = 0.5,
         **kwargs) -> xr.DataArray:
+
+     all_inputs = np.stack(input, axis = 0)
+     if na_ignore:
+          sum_data = np.nansum(all_inputs, axis = 0)
+     else:
+          sum_data = np.sum(all_inputs, axis = 0)
+     sum_da = xr.DataArray(sum_data, coords = input[0].coords, dims = input[0].dims)
+
+     return sum_da
+
+@as_agg_function()
+def sum_weighted(input: list[xr.DataArray],
+                 input_agg: list[TimeRange],
+                 this_agg: TimeRange,
+                 na_ignore = False,
+                 nan_threshold = 0.5,
+                 **kwargs) -> xr.DataArray:
 
      mean_da = mean(input, input_agg, this_agg, na_ignore = na_ignore, nan_threshold = nan_threshold)
      return mean_da * this_agg.length()
-
-     # all_inputs = np.stack(input, axis = 0)
-     # if na_ignore:
-     #      sum_data = np.nansum(all_inputs, axis = 0)
-     # else:
-     #      sum_data = np.sum(all_inputs, axis = 0)
-     # sum_da = xr.DataArray(sum_data, coords = input[0].coords, dims = input[0].dims)
-
-     # return sum_da
 
 @as_agg_function()
 def mean(input: list[xr.DataArray],
