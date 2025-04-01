@@ -15,17 +15,31 @@ def sum(input: list[xr.DataArray],
         nan_threshold = 0.5,
         **kwargs) -> xr.DataArray:
 
-     mean_da = mean(input, input_agg, this_agg, na_ignore = na_ignore, nan_threshold = nan_threshold)
-     return mean_da * this_agg.length()
+     weights       = np.array(calc_overlap(this_agg, input_agg))
+     all_inputs    = np.stack(input, axis = 0)
 
-     # all_inputs = np.stack(input, axis = 0)
-     # if na_ignore:
-     #      sum_data = np.nansum(all_inputs, axis = 0)
-     # else:
-     #      sum_data = np.sum(all_inputs, axis = 0)
-     # sum_da = xr.DataArray(sum_data, coords = input[0].coords, dims = input[0].dims)
+     # multiply each data in the brick by the weight, b is the band of the raster (which is always 1)
+     weighted_data = np.einsum('i,ibjk->ibjk', weights, all_inputs)
+     
+     # sum all the weighted data and divide by the total weight, protecting nans
+     mask = np.isfinite(weighted_data) # <- this is a mask of all the nans in the weighted data
+     weights_3d = np.broadcast_to(weights[:, np.newaxis, np.newaxis, np.newaxis], weighted_data.shape)
+     selected_weights = np.where(mask, weights_3d, 0)
+     total_weights = np.sum(selected_weights, axis=0)
 
-     # return sum_da
+     # sum all the weighted data
+     if na_ignore:
+          weighted_sum = np.nansum(weighted_data, axis = 0)
+     else:
+          weighted_sum = np.sum(weighted_data, axis = 0)
+
+     # Remove where the total sum of weights is less than nan_threshold x 100% the total weights
+     weighted_sum = np.where(total_weights/np.sum(weights) <= nan_threshold, np.nan, weighted_sum)
+
+     sum_da = xr.DataArray(weighted_sum, coords = input[0].coords, dims = input[0].dims)
+     sum_da.attrs['_FillValue'] = np.nan
+     
+     return sum_da
 
 @as_agg_function()
 def mean(input: list[xr.DataArray],
@@ -75,7 +89,7 @@ def calc_overlap(this_tr: TimeRange, other_tr: TimeRange|list[TimeRange]) -> Tim
      end = min(this_tr.end, other_tr.end)
      size = TimeRange(start, end).length()
      original_size = this_tr.length()
-     if size < 1:
+     if size <= 1:
           size = TimeRange(start, end).length(unit = 'hours')
           original_size = this_tr.length(unit = 'hours')
 
