@@ -113,6 +113,9 @@ def calc_overlap(this_tr: TimeRange, other_tr: TimeRange|list[TimeRange]) -> Tim
      elif isinstance(this_tr, Sequence):
           return [calc_overlap(tr, other_tr) for tr in this_tr]
      
+     if this_tr.start >= other_tr.end or this_tr.end <= other_tr.start:
+          return 0
+
      start = max(this_tr.start, other_tr.start)
      end = min(this_tr.end, other_tr.end)
      size = TimeRange(start, end).length()
