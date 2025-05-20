@@ -21,7 +21,8 @@ class DAMWorkflow:
     default_options = {
         'intermediate_output'   : 'Tmp', # 'Mem' or 'Tmp'
         'break_on_missing_tiles': False,
-        'tmp_dir'               : os.getenv('TMP', '/tmp')
+        'tmp_dir'               : os.getenv('TMP', '/tmp'),
+        'propagate_metadata'    : [],
     }
 
     def __init__(self,
@@ -50,6 +51,10 @@ class DAMWorkflow:
         # all the options that are not in the self.default_options will be used to set the input
         self.input_options = {k: v for k, v in all_options.items() if k not in self.default_options}
         self.options  = {k: v for k, v in all_options.items() if k not in self.input_options}
+
+        # ensure that the "propagate_metadata" option is a list
+        if self.options.get('propagate_metadata') is not None and isinstance(self.options['propagate_metadata'], str):
+            self.options['propagate_metadata'] = [self.options['propagate_metadata']]
 
         # if the input data has tiles, we need to add the tile name to the input options
         if self.input.has_tiles:
@@ -104,6 +109,9 @@ class DAMWorkflow:
 
         this_process = make_process(function, kwargs)
         this_process.output = output
+        this_process.propagate_metadata = self.options['propagate_metadata']
+        
+
         process_list.append(this_process)
         pids.append(pid)
         i = len(process_list)-1
