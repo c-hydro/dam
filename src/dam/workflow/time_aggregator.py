@@ -45,8 +45,11 @@ class TimeAggregator(Processor):
         max_window = max(windows)
         for i in range(len(window_names)):
             this_window = windows[i]
-            run_window = max_window - this_window
-            run_time = timerange.extend(run_window, before = True)
+            if self.make_past:
+                run_window = max_window - this_window
+                run_time = timerange.extend(run_window, before = True)
+            else:
+                run_time = timerange
 
             this_window_tags = tags | {f'{self.pid}.agg_window': window_names[i]}
             this_window_args = args | {'agg_window' : windows[i]}
@@ -76,6 +79,8 @@ class TimeAggregator(Processor):
         
         for ts in timesteps:
 
+
+
             agg_range = ts.agg_range
             relevant_ts = self.input.get_timesteps(agg_range, **tags)
             if len(relevant_ts) == 0: # if there is no data in this aggregation time
@@ -90,8 +95,6 @@ class TimeAggregator(Processor):
                     use_tags = False
             else:
                 use_tags = True
-
-            relevant_ts = [t for t in relevant_ts if t.agg_range.start < ts.agg_range.end and t.agg_range.end > ts.agg_range.start]
             
             # if the data starts after the current timestep, skip
             if relevant_ts[0].agg_range.start > ts.agg_range.start and self.input.get_start(agg=True) > ts.agg_range.start:
@@ -118,7 +121,17 @@ class TimeAggregator(Processor):
             tag_str = ', '.join([f'{k}={v}' for k, v in str_tags.items()])
             print(f'{self.pid} - {ts}, {tag_str}')
 
-            metadata = {'agg_method' : f'{self.agg_function_name}, {window_name}'}
+            metadata = {}
+            for key in self.propagate_metadata:
+                for data in input_data:
+                    if key in data.attrs:
+                        if key in metadata:
+                            metadata[key].append(data.attrs[key])
+                        else:
+                            metadata[key] = [data.attrs[key]]
+            metadata = {k: ','.join(v) for k, v in metadata.items()}
+            metadata['agg_method'] = f'{self.agg_function_name}, {window_name}'
+            
             self.output.write_data(output, ts, metadata = metadata, **tags)
 
     def set_args(self, args: dict):

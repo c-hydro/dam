@@ -17,6 +17,7 @@ class Processor:
     pid = None
 
     propagate_metadata = []
+    make_past = True
 
     def __init__(self,
                  function: Callable,
