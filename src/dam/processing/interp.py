@@ -2,6 +2,9 @@ import numpy as np
 import xarray as xr
 from sklearn import linear_model
 from typing import Optional
+import tempfile
+
+from d3tools.exit import rm_at_exit
 
 from ..utils.geo_utils import ltln2val_from_2dDataArray
 from ..utils.io_csv import save_csv
@@ -101,7 +104,7 @@ def interp_with_elevation(input: pd.DataFrame,
     map_2d = xr.DataArray(map_target,
                           coords=[dem.coords[dem.coords.dims[0]], dem.coords[dem.coords.dims[1]]],
                           dims=['y', 'x'])
-    map_2d = map_2d.rio.set_spatial_dims(x_dim='x', y_dim='y').rio.set_crs(crs)
+    map_2d = map_2d.rio.set_spatial_dims(x_dim='x', y_dim='y').rio.write_crs(crs)
 
     return map_2d
 
@@ -110,7 +113,7 @@ def interp_with_elevation(input: pd.DataFrame,
 def interp_idw(input:pd.DataFrame,
                name_lat_lon_data_csv: list[str],
                dem:xr.DataArray,
-               tmp_dir:str,
+               tmp_dir:Optional[str] = None,
                exponent_idw:Optional[int] = 2,
                interp_radius_x:Optional[float] = 1,
                interp_radius_y:Optional[float] = 1,
@@ -134,8 +137,13 @@ def interp_idw(input:pd.DataFrame,
     tag = random_string()
 
     # define paths
-    path_output = tmp_dir
+    if tmp_dir is None:
+        tmp_dir = os.getenv('TMP', "/tmp")
+
+    path_output = tempfile.gettempdir(prefix=tmp_dir)
+    rm_at_exit(path_output)
     os.makedirs(path_output, exist_ok=True)
+
     file_name_csv = os.path.join(path_output, tag + '.csv')
     file_name_vrt = os.path.join(path_output, tag + '.vrt')
 
