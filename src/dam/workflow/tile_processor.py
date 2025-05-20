@@ -42,7 +42,17 @@ class TileMerger(Processor):
         tag_str = ', '.join([f'{k}={v}' for k, v in str_tags.items()])
         print(f'{self.pid} - {time}, {tag_str}')
 
-        self.output.write_data(output, time, **tags)
+        metadata = {}
+        for key in self.propagate_metadata:
+            for data in input_data:
+                if key in data.attrs:
+                    if key in metadata:
+                        metadata[key].append(data.attrs[key])
+                    else:
+                        metadata[key] = [data.attrs[key]]
+        metadata = {k: ','.join(v) for k, v in metadata.items()}
+
+        self.output.write_data(output, time, metadata = metadata, **tags)
 
 class TileSplitter(Processor):
 
@@ -84,8 +94,14 @@ class TileSplitter(Processor):
         str_tags = {k.replace(f'{self.pid}.', ''): v for k, v in tags.items()}
         tag_str = ', '.join([f'{k}={v}' for k, v in str_tags.items()])
         print(f'{self.pid} - {time}, {tag_str}')
+
+        metadata = {}
+        for key in self.propagate_metadata:
+            if key in input_data.attrs:
+                metadata[key] = input_data.attrs[key]
+
         for this_output, tile_name in zip(output, self.tile_names):
-            self.output.write_data(this_output, time, tile = tile_name, **tags)
+            self.output.write_data(this_output, time, tile = tile_name, metdata = metadata, **tags)
     
     @staticmethod
     def get_tile_names(n_tiles, name_format, dir):

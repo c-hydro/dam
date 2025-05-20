@@ -16,6 +16,9 @@ class Processor:
 
     pid = None
 
+    propagate_metadata = []
+    make_past = True
+
     def __init__(self,
                  function: Callable,
                  args: dict = None) -> None:
@@ -56,7 +59,12 @@ class Processor:
         tag_str = ', '.join([f'{k}={v}' for k, v in str_tags.items()])
         print(f'{self.pid} - {time}, {tag_str}')
 
-        self.output.write_data(output, time, **tags)
+        metadata = {}
+        for key in self.propagate_metadata:
+            if key in input_data.attrs:
+                metadata[key] = input_data.attrs[key]
+
+        self.output.write_data(output, time, metdata = metadata, **tags)
 
     def set_args(self, args: None|dict) -> tuple:
 
