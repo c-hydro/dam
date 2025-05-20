@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dam"
-version = "1.2.0"
+version = "1.2.7"
 description = "Data Analysis Middleware: a package for spatial data handling and transformation."
 authors = [
     { name = "Luca Trotter", email = "luca.trotter@cimafoundation.org" },
