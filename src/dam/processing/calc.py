@@ -209,6 +209,18 @@ def combine_raster_data(input: xr.DataArray,
     Combine multiple rasters into a single raster.
     """
 
+    input_data = [input.values]
+    ordered_kwargs = OrderedDict(kwargs)
+    for k, v in ordered_kwargs.items():
+        if isinstance(v, xr.DataArray):
+            input_data.append(v.values)
+
+    # check that the weitghts are the correct length
+    if weights is None:
+        weights = [1] * len(input_data)
+    elif len(weights) != len(input_data):
+        raise ValueError('The number of weights must be the same as the number of rasters.')
+
     match statistic:
         case 'sum':
             weights = weights
@@ -217,20 +229,8 @@ def combine_raster_data(input: xr.DataArray,
         case _:
             raise ValueError('The statistic must be either "sum" or "mean".')
 
-    input_data = [input.values]
-    ordered_kwargs = OrderedDict(kwargs)
-    for k, v in ordered_kwargs.items():
-        if isinstance(v, xr.DataArray):
-            input_data.append(v.values)
-
     if len(input_data) == 1:
         raise ValueError('No additional rasters were provided for combine_raster_data.')
-
-    # check that the weitghts are the correct length
-    if weights is None:
-        weights = [1] * len(input_data)
-    elif len(weights) != len(input_data):
-        raise ValueError('The number of weights must be the same as the number of rasters.')
 
     # remove 1d dimensions
     databrick = np.stack([d.squeeze() for d in input_data])
