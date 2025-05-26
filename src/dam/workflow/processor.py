@@ -19,6 +19,8 @@ class Processor:
     propagate_metadata = []
     make_past = True
 
+    timestep_settings = None
+
     def __init__(self,
                  function: Callable,
                  args: dict = None) -> None:
@@ -45,10 +47,11 @@ class Processor:
             return ##TODO: add a warning or something
 
         these_args = {}
+        ts_shifts = self.timestep_settings or {}
         for arg_name in self.args:
             arg_value = args.get(f'{self.pid}.{arg_name}', self.args[arg_name])
             if isinstance(arg_value, Dataset):
-                these_args[arg_name] = arg_value.get_data(time, **tags)
+                these_args[arg_name] = arg_value.get_data(time + ts_shifts.get(arg_name, 0), **tags)
             else:
                 these_args[arg_name] = arg_value
 
@@ -95,6 +98,11 @@ def make_process(function_name: str|Callable,
     from .time_aggregator import TimeAggregator
     from .tile_processor import TileMerger, TileSplitter
 
+    if ".timesteps" in args:
+        timestep_settings = args.pop(".timesteps")
+    else:
+        timestep_settings = None
+
     if isinstance(function_name, str):
         if function_name == 'aggregate_times':
             this_process = TimeAggregator(args)
@@ -107,4 +115,5 @@ def make_process(function_name: str|Callable,
             this_process = Processor(function, args)
     
     this_process.output = output
+    this_process.timestep_settings = timestep_settings
     return this_process

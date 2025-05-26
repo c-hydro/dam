@@ -79,8 +79,6 @@ class TimeAggregator(Processor):
         
         for ts in timesteps:
 
-
-
             agg_range = ts.agg_range
             relevant_ts = self.input.get_timesteps(agg_range, **tags)
             if len(relevant_ts) == 0: # if there is no data in this aggregation time
@@ -108,10 +106,11 @@ class TimeAggregator(Processor):
             input_agg = [ts.agg_range for ts in relevant_ts]
 
             these_args = {}
+            ts_shifts = self.timestep_settings or {}
             for arg_name in self.args:
                 arg_value = args.get(f'{self.pid}.{arg_name}', self.args[arg_name])
                 if isinstance(arg_value, Dataset):
-                    these_args[arg_name] = [arg_value.get_data(t, **tags) for t in relevant_ts]
+                    these_args[arg_name] = [arg_value.get_data(t+ts_shifts.get(arg_name,0), **tags) for t in relevant_ts]
                 else:
                     these_args[arg_name] = arg_value
         
