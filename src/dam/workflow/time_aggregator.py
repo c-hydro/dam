@@ -95,8 +95,13 @@ class TimeAggregator(Processor):
                 use_tags = True
             
             # if the data starts after the current timestep, skip
-            if relevant_ts[0].agg_range.start > ts.agg_range.start and self.input.get_start(agg=True) > ts.agg_range.start:
-                continue
+            if relevant_ts[0].agg_range.start > ts.agg_range.start:
+                if use_tags:
+                    if self.input.get_start(agg=True, **tags) > ts.agg_range.start:
+                        continue
+                else:
+                    if self.input.get_start(agg=True, **args) > ts.agg_range.start:
+                        continue
 
             if use_tags:
                 input_data = [self.input.get_data(t, **tags) for t in relevant_ts]
