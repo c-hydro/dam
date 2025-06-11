@@ -91,7 +91,8 @@ def mean(input: list[xr.DataArray|np.ndarray],
           # Remove where the total sum of weights is at least (nan_threshold x 100)% of the total weights
           weighted_sum = np.where(total_weights/np.sum(weights) <= (1-nan_threshold), np.nan, weighted_sum)
      else:
-          weighted_sum = np.sum(weighted_data, axis = 0)
+          weighted_sum  = np.sum(weighted_data, axis = 0)
+          total_weights = np.full_like(weighted_sum, np.sum(weights))
      
      # divide by the total weights
      # to avoid division by zero, we set the zero weights to nan right away

@@ -228,7 +228,10 @@ class DAMWorkflow:
         first_process = self._processes[min(process_n)]
         timesteps = set()
         for case in self.case_tree[min(process_n)].values():
-            timesteps.update(first_process.input.get_timesteps(time, **case.tags))
+            these_tss = first_process.input.get_timesteps(time, **case.tags)
+            if len(these_tss) == 0:
+                these_tss = first_process.input.get_timesteps(time, **case.options)
+            timesteps.update(these_tss)
 
         timesteps = list(timesteps)
         timesteps.sort()
@@ -281,6 +284,8 @@ class DAMWorkflow:
         for case in input_cases.values():
             now = None if last_ts_input is None else last_ts_input.end + dt.timedelta(days = 1)
             input = self.input.get_last_ts(now = now, **case.tags, **kwargs)
+            if input is None:
+                input = self.input.get_last_ts(now = now, **case.options, **kwargs)
             if input is not None:
                 last_ts_input = input if last_ts_input is None else min(input, last_ts_input)
             else:
