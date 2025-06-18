@@ -348,16 +348,17 @@ def classify_raster(input: xr.DataArray,
     classified_values = np.digitize(input.values, thresholds, right=(side.lower() == "right"))
 
     # Map digitized values to the provided or default classes
-    classified_map = np.array(classes, dtype=int)[classified_values]
+    classified_map = np.array(classes, dtype=np.uint8)[classified_values]
 
     # Preserve NaN values
-    classified_map = np.where(np.isnan(input.values), np.nan, classified_map)
+    classified_map = np.where(np.isclose(input, nodata_value, equal_nan=True), 255, classified_map)
 
     # Convert back to xarray.DataArray with the same coordinates and dimensions
     output = xr.DataArray(classified_map,
                           dims=input.dims,
                           coords=input.coords,
-                          name="classified_map")
+                          name="classified_map",
+                          attrs={'_FillValue': 255})
     return output
 
 # -------------------------------------------------------------------------------------
@@ -367,6 +368,7 @@ def normalize_raster(input: xr.DataArray,
                      method: str = "minmax",
                      min_value: Optional[float] = None,
                      max_value: Optional[float] = None,
+                     nodata_value: float = np.nan
                      ) -> xr.DataArray:
     """
     Normalizes a raster using specified method.
@@ -383,6 +385,8 @@ def normalize_raster(input: xr.DataArray,
     if method.lower() not in ["minmax", "meanstd"]:
         raise ValueError("Parameter 'method' must be either 'minmax' or 'meanstd'.")
 
+    old_nodata = input.attrs.get('_FillValue', np.nan)
+
     # Normalize using Min-Max scaling
     if method.lower() == "minmax":
         if min_value is None:
@@ -392,15 +396,19 @@ def normalize_raster(input: xr.DataArray,
         if min_value == max_value:
             raise ValueError("min_value and max_value cannot be equal.")
         normalized_values = (input - min_value) / (max_value - min_value)
-
+        # Replace nodata values with the new nodata value
+        normalized_values = np.where(np.isclose(input, old_nodata, equal_nan=True), nodata_value, normalized_values)
 
     # Normalize using Mean-Std scaling
     elif method == "meanstd":
         normalized_values = (input - input.mean()) / input.std()
+        # Replace nodata values with the new nodata value
+        normalized_values = np.where(np.isclose(input, old_nodata, equal_nan=True), nodata_value, normalized_values)
 
     # Convert back to xarray.DataArray with the same coordinates and dimensions
     output = xr.DataArray(normalized_values,
                           dims=input.dims,
                           coords=input.coords,
-                          name="normalized_map")
+                          name="normalized_map",
+                          attrs={'_FillValue': nodata_value})
     return output
