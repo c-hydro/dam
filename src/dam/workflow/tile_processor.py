@@ -53,7 +53,9 @@ class TileMerger(Processor):
                         metadata[key] = [data.attrs[key]]
         metadata = {k: ','.join(v) for k, v in metadata.items()}
 
-        self.output.write_data(output, time, metadata = metadata, **tags)
+        output.attrs = metadata
+        output_key = self.output.get_key(time, **tags)
+        self.output._write_data(output, output_key)
 
 class TileSplitter(Processor):
 
