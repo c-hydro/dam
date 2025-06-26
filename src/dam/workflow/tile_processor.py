@@ -20,13 +20,23 @@ class TileMerger(Processor):
 
     def run(self, time: dt.datetime|TimeStep, args: dict, tags: dict) -> None:
 
+        input_data = []
+        tiles      = [] 
+
         arg_str = {k:str(args.get(k, tags[k])) for k in tags}
-        if self.input.check_data(time, tile = self.input_tiles[0], **tags):
-            input_data = [self.input.get_data(time, tile = t, **tags) for t in self.input_tiles]
-        elif self.input.check_data(time, tile = self.input_tiles[0], *arg_str):
-            input_data = [self.input.get_data(time, tile = t, **arg_str) for t in self.input_tiles]
-        else:
-            return ##TODO: add a warning or something
+
+        use_args = False
+        for tile in self.input_tiles:
+            if not use_args and self.input.check_data(time, tile = tile, **tags):
+                input_data.append(self.input.get_data(time, tile = tile, **tags))
+                tiles.append(tile)
+            elif self.input.check_data(time, tile = tile, **arg_str):
+                input_data.append(self.input.get_data(time, tile = tile, **arg_str))
+                use_args = True
+                tiles.append(tile)
+        
+        if len(input_data) == 0:
+            return ## TODO: add a warning or something
 
         these_args = {}
         ts_shifts = self.timestep_settings or {}
@@ -43,7 +53,7 @@ class TileMerger(Processor):
         tag_str = ', '.join([f'{k}={v}' for k, v in str_tags.items()])
         print(f'{self.pid} - {time}, {tag_str}')
 
-        metadata = {}
+        metadata = {"tiles": tiles}
         for key in self.propagate_metadata:
             for data in input_data:
                 if key in data.attrs:
