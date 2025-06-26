@@ -47,7 +47,7 @@ def combine_tiles(inputs: list[str],
 
     return output_file
 
-@as_DAM_process(input_type = 'xarray', output_type = 'xarray', output_tiles = True)
+@as_DAM_process(input_type = 'xarray', output_type = 'xarray', output_tiles = True, input_as_is = True)
 def split_in_tiles(input: str, n_tiles: int | tuple[int, int],
                    tile_names = '{i}', start = 'bl', dir = 'vh') -> Generator[xr.DataArray, None, None]:
     """
