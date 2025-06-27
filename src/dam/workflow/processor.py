@@ -36,13 +36,15 @@ class Processor:
         self.tile_output = function.__dict__.get('output_tiles', False)
         self.tile_input  = function.__dict__.get('input_tiles', False)
 
+        self.input_as_is = function.__dict__.get('input_as_is', False)
+
     def run(self, time: dt.datetime|TimeStep, args: dict, tags: dict) -> None:
         
         arg_str = {k:str(args.get(k, tags[k])) for k in tags}
         if self.input.check_data(time, **tags):
-            input_data = self.input.get_data(time, **tags)
+            input_data = self.input.get_data(time, **tags, as_is=self.input_as_is)
         elif self.input.check_data(time, **arg_str):
-            input_data = self.input.get_data(time, **arg_str)
+            input_data = self.input.get_data(time, **arg_str, as_is=self.input_as_is)
         else:
             return ##TODO: add a warning or something
 
@@ -51,7 +53,7 @@ class Processor:
         for arg_name in self.args:
             arg_value = args.get(f'{self.pid}.{arg_name}', self.args[arg_name])
             if isinstance(arg_value, Dataset):
-                these_args[arg_name] = arg_value.get_data(time + ts_shifts.get(arg_name, 0), **tags)
+                these_args[arg_name] = arg_value.get_data(time + ts_shifts.get(arg_name, 0), **tags, as_is=self.input_as_is)
             else:
                 these_args[arg_name] = arg_value
 
@@ -67,7 +69,7 @@ class Processor:
             if key in input_data.attrs:
                 metadata[key] = input_data.attrs[key]
 
-        self.output.write_data(output, time, metdata = metadata, **tags)
+        self.output.write_data(output, time, metadata = metadata, **tags)
 
     def set_args(self, args: None|dict) -> tuple:
 

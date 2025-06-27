@@ -259,7 +259,7 @@ class DAMWorkflow:
         ext_out  = process.output_ext or ext_in[1:]
         root_out = '%Y%m%d' + '%H' * ('%H' in root_in)
 
-        output_pattern = f'{process.pid}/' + "_".join([f'{{{t}}}' for t in tags]) + f'_{root_out}.{ext_out}'
+        output_pattern = f'{process.pid}/{process.pid}' + "_".join([f'{{{t}}}' for t in tags]) + f'_{root_out}.{ext_out}'
         
         output_type = self.options['intermediate_output']
         if output_type == 'Mem':
