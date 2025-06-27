@@ -58,7 +58,7 @@ def as_DAM_process(input_type: str = 'xarray', output_type: str = 'xarray', **kw
 
 def with_list_input(func):
     def wrapper(input, *args, **kwargs):
-        if isinstance(input, Sequence) or isinstance(input, Generator):
+        if isinstance(input, (Sequence, Generator)) and not isinstance(input, (str, bytes)):
             return [func(i, *args, **kwargs) for i in input]
         else:
             return func(input, *args, **kwargs)
