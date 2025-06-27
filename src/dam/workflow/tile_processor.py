@@ -58,9 +58,9 @@ class TileMerger(Processor):
             for data in input_data:
                 if key in data.attrs:
                     if key in metadata:
-                        metadata[key].append(data.attrs[key])
+                        metadata[key].append(str(data.attrs[key]))
                     else:
-                        metadata[key] = [data.attrs[key]]
+                        metadata[key] = [str(data.attrs[key])]
         metadata = {k: ','.join(v) for k, v in metadata.items()}
 
         output.attrs = metadata
@@ -115,7 +115,7 @@ class TileSplitter(Processor):
                 metadata[key] = input_data.attrs[key]
 
         for this_output, tile_name in zip(output, self.tile_names):
-            self.output.write_data(this_output, time, tile = tile_name, metdata = metadata, **tags)
+            self.output.write_data(this_output, time, tile = tile_name, metadata = metadata, **tags)
     
     @staticmethod
     def get_tile_names(n_tiles, name_format, dir):

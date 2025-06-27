@@ -69,7 +69,7 @@ class Processor:
             if key in input_data.attrs:
                 metadata[key] = input_data.attrs[key]
 
-        self.output.write_data(output, time, metdata = metadata, **tags)
+        self.output.write_data(output, time, metadata = metadata, **tags)
 
     def set_args(self, args: None|dict) -> tuple:
 
