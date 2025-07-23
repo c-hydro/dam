@@ -279,18 +279,29 @@ class DAMWorkflow:
         Get the last available timesteps of the input and output datasets, based on input and output cases
         """
 
+        input_ds = [self.input]
+        all_processes = self.processes.get('processes', [])
+
+        for p in filter(lambda p: p is not None, all_processes):
+            for a in p.args.values():
+                if isinstance(a, Dataset) and '%Y' in re.sub(r'\{[^}]*\}', '', a.key_pattern):
+                    input_ds.append(a)
+
+        input_dates = []
         input_cases = self.case_tree[0]
-        last_ts_input = None
-        for case in input_cases.values():
-            now = None if last_ts_input is None else last_ts_input.end + dt.timedelta(days = 1)
-            input = self.input.get_last_ts(now = now, **case.tags, **kwargs)
-            if input is None:
-                input = self.input.get_last_ts(now = now, **case.options, **kwargs)
-            if input is not None:
-                last_ts_input = input if last_ts_input is None else min(input, last_ts_input)
-            else:
-                last_ts_input = None
-                break
+        for ds in input_ds:
+            for case in input_cases.values():
+                now = None if last_ts_input is None else last_ts_input.end + dt.timedelta(days = 1)
+                input = ds.get_last_ts(now = now, **case.tags, **kwargs)
+                if input is None:
+                    input = ds.get_last_ts(now = now, **case.options, **kwargs)
+                if input is not None:
+                    last_ts_input = input if last_ts_input is None else min(input, last_ts_input)
+                else:
+                    last_ts_input = None
+                    break
+            input_dates.append(last_ts_input)
+        last_ts_input = min(filter(None, input_dates), default = None)
 
         output_cases = self.case_tree[-1]
         last_ts_output = None
