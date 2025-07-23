@@ -140,7 +140,7 @@ def interp_idw(input:pd.DataFrame,
     if tmp_dir is None:
         tmp_dir = os.getenv('TMP', "/tmp")
 
-    path_output = tempfile.gettempdir(prefix=tmp_dir)
+    path_output = tempfile.mkdtemp(dir =tmp_dir)
     rm_at_exit(path_output)
     os.makedirs(path_output, exist_ok=True)
 
