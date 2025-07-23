@@ -290,6 +290,7 @@ class DAMWorkflow:
         input_dates = []
         input_cases = self.case_tree[0]
         for ds in input_ds:
+            last_ts_input = None
             for case in input_cases.values():
                 now = None if last_ts_input is None else last_ts_input.end + dt.timedelta(days = 1)
                 input = ds.get_last_ts(now = now, **case.tags, **kwargs)
