@@ -28,10 +28,10 @@ class TileMerger(Processor):
         use_args = False
         for tile in self.input_tiles:
             if not use_args and self.input.check_data(time, tile = tile, **tags):
-                input_data.append(self.input.get_data(time, tile = tile, **tags))
+                input_data.append(self.input.get_data(time, tile = tile, **tags).chunk("auto"))
                 tiles.append(tile)
             elif self.input.check_data(time, tile = tile, **arg_str):
-                input_data.append(self.input.get_data(time, tile = tile, **arg_str))
+                input_data.append(self.input.get_data(time, tile = tile, **arg_str).chunk("auto"))
                 use_args = True
                 tiles.append(tile)
         

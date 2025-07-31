@@ -1,4 +1,5 @@
 import xarray as xr
+import rioxarray as rxr
 import numpy as np
 import tempfile
 from typing import Optional, Generator
@@ -8,44 +9,15 @@ from ..utils.register_process import as_DAM_process
 from d3tools.errors import GDAL_ImportError
 from d3tools.exit import rm_at_exit
 
-@as_DAM_process(input_type="file", output_type='file', input_tiles = True)
-def combine_tiles(inputs: list[str],
+@as_DAM_process(input_type="xarray", output_type='xarray', input_tiles = True)
+def combine_tiles(inputs: list[xr.DataArray],
                   num_cpus: Optional[int] = None
-                  )-> str:
+                  )-> xr.DataArray:
     """
     Mosaic a set of input rasters.
     """
 
-    try:
-        from osgeo import gdal
-    except ImportError:
-        raise GDAL_ImportError(function = 'dam.processing.combine_tiles')
-
-    if isinstance(inputs[0], str):
-        ds0 = gdal.Open(inputs[0])
-        input_dataType = ds0.GetRasterBand(1).DataType
-    else:
-        input_dataType = inputs[0].GetRasterBand(1).DataType
-
-    if num_cpus is None:
-        num_cpus = 'ALL_CPUS'
-
-    tmp_path = tempfile.mkdtemp()
-    rm_at_exit(tmp_path)
-
-    output_file = os.path.join(tmp_path, 'mosaic.tif')
-
-    warp_options = gdal.WarpOptions(
-        format='GTiff',
-        multithread=True,
-        warpOptions=[f'NUM_THREADS={num_cpus}']
-    )
- 
-    gdal.Warp(output_file, inputs, options=warp_options, 
-              outputType=input_dataType, 
-              creationOptions=['COMPRESS=LZW'])
-
-    return output_file
+    return xr.combine_by_coords(inputs, combine_attrs="override")
 
 @as_DAM_process(input_type = 'xarray', output_type = 'xarray', output_tiles = True, input_as_is = True)
 def split_in_tiles(input: str, n_tiles: int | tuple[int, int],
