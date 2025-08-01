@@ -17,7 +17,10 @@ def combine_tiles(inputs: list[xr.DataArray],
     Mosaic a set of input rasters.
     """
 
-    return xr.combine_by_coords(inputs, combine_attrs="override")
+    combined = xr.combine_by_coords(inputs, combine_attrs="override")
+    combined = combined.astype(inputs[0].dtype)
+
+    return combined
 
 @as_DAM_process(input_type = 'xarray', output_type = 'xarray', output_tiles = True, input_as_is = True)
 def split_in_tiles(input: str, n_tiles: int | tuple[int, int],
