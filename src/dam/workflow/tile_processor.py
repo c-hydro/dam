@@ -63,9 +63,15 @@ class TileMerger(Processor):
                         metadata[key] = [str(data.attrs[key])]
         metadata = {k: ','.join(v) for k, v in metadata.items()}
 
-        output.attrs = metadata
-        output_key = self.output.get_key(time, **tags)
-        self.output._write_data(output, output_key)
+        # remove the attributes "name" and "tile" from the output
+        output.attrs.pop('name', None)
+        output.attrs.pop('tile', None)
+
+        # remove all the attributes that are in the metadata, otherwise they will be overwritten
+        for key in metadata:
+            output.attrs.pop(key, None)
+
+        self.output.write_data(output, time, metadata=metadata, **tags, as_is=True)
 
 class TileSplitter(Processor):
 
