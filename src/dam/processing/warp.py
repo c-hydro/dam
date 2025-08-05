@@ -115,8 +115,7 @@ def _match_grid_xarray(input: xr.DataArray,
     chunked_input = input_da.chunk(chunk_sizes)
     result_da = chunked_input.map_blocks(
         process_chunk,
-        args=(nodata_value,),
-        template=input_da.astype(np.uint8)
+        args=(nodata_value,)
     )
     nan_mask = result_da.compute()
 
