@@ -108,12 +108,15 @@ def _match_grid_xarray(input: xr.DataArray,
     nodata_value = nodata_value or input.rio.nodata
 
     def process_chunk(chunk, nodata_value):
-        return chunk.copy(data = np.isclose(chunk, nodata_value, equal_nan=True).astype(np.int8))
+        return chunk.copy(data = np.isclose(chunk, nodata_value, equal_nan=True).astype(np.uint8))
     
     chunk_sizes = [np.ceil(s/10) for s in input_da.shape]
 
     chunked_input = input_da.chunk(chunk_sizes)
-    result_da     = chunked_input.map_blocks(process_chunk, args = (nodata_value,))
+    result_da = chunked_input.map_blocks(
+        process_chunk,
+        args=(nodata_value,)
+    )
     nan_mask = result_da.compute()
 
     nan_mask = nan_mask * 100
