@@ -28,10 +28,10 @@ class TileMerger(Processor):
         use_args = False
         for tile in self.input_tiles:
             if not use_args and self.input.check_data(time, tile = tile, **tags):
-                input_data.append(self.input.get_data(time, tile = tile, **tags))
+                input_data.append(self.input.get_data(time, tile = tile, **tags).chunk("auto"))
                 tiles.append(tile)
             elif self.input.check_data(time, tile = tile, **arg_str):
-                input_data.append(self.input.get_data(time, tile = tile, **arg_str))
+                input_data.append(self.input.get_data(time, tile = tile, **arg_str).chunk("auto"))
                 use_args = True
                 tiles.append(tile)
         
@@ -63,9 +63,15 @@ class TileMerger(Processor):
                         metadata[key] = [str(data.attrs[key])]
         metadata = {k: ','.join(v) for k, v in metadata.items()}
 
-        output.attrs = metadata
-        output_key = self.output.get_key(time, **tags)
-        self.output._write_data(output, output_key)
+        # remove the attributes "name" and "tile" from the output
+        output.attrs.pop('name', None)
+        output.attrs.pop('tile', None)
+
+        # remove all the attributes that are in the metadata, otherwise they will be overwritten
+        for key in metadata:
+            output.attrs.pop(key, None)
+
+        self.output.write_data(output, time, metadata=metadata, **tags, as_is=True)
 
 class TileSplitter(Processor):
 
