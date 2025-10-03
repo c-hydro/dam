@@ -17,7 +17,7 @@ def combine_tiles(inputs: list[xr.DataArray],
     Mosaic a set of input rasters.
     """
 
-    combined = xr.combine_by_coords(inputs, combine_attrs="override")
+    combined = xr.combine_by_coords(inputs, combine_attrs="override", join = 'outer', fill_value=inputs[0].attrs.get('_FillValue'))
     combined = combined.astype(inputs[0].dtype)
 
     return combined
