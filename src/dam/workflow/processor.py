@@ -61,6 +61,7 @@ class Processor:
                 these_args[arg_name] = arg_value
 
         output = self.function(input_data, **these_args)
+        if output is None: return
 
         str_tags = {k.replace(f'{self.pid}.', ''): v for k, v in tags.items()}
         if 'tile' in tags: str_tags['tile'] = tags['tile']

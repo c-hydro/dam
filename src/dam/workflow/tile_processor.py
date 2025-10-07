@@ -48,6 +48,7 @@ class TileMerger(Processor):
                 these_args[arg_name] = arg_value
 
         output = self.function(input_data, **these_args)
+        if output is None: return
 
         str_tags = {k.replace(f'{self.pid}.', ''): v for k, v in tags.items()}
         tag_str = ', '.join([f'{k}={v}' for k, v in str_tags.items()])
@@ -121,6 +122,7 @@ class TileSplitter(Processor):
                 metadata[key] = input_data.attrs[key]
 
         for this_output, tile_name in zip(output, self.tile_names):
+            if this_output is None: continue
             self.output.write_data(this_output, time, tile = tile_name, metadata = metadata, **tags)
     
     @staticmethod

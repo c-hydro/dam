@@ -120,6 +120,7 @@ class TimeAggregator(Processor):
                     these_args[arg_name] = arg_value
         
             output = self.agg_function(input_data, input_agg = input_agg, this_agg  = agg_range, **these_args)
+            if output is None: return
             
             str_tags = {k.replace(f'{self.pid}.', ''): v for k, v in tags.items()}
             tag_str = ', '.join([f'{k}={v}' for k, v in str_tags.items()])
