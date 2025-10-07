@@ -90,6 +90,10 @@ class Processor:
             else:
                 args[key] = set_arg_type(value)
 
+        if 'kwargs' in args:
+            kwargs = args.pop('kwargs')
+            args.update(kwargs)
+
         self.args = args
 
 def make_process(function_name: str|Callable,
