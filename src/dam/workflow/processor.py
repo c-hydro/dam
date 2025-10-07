@@ -53,7 +53,10 @@ class Processor:
         for arg_name in self.args:
             arg_value = args.get(f'{self.pid}.{arg_name}', self.args[arg_name])
             if isinstance(arg_value, Dataset):
-                these_args[arg_name] = arg_value.get_data(time + ts_shifts.get(arg_name, 0), **tags, as_is=self.input_as_is)
+                if not arg_value.check_data(time + ts_shifts.get(arg_name, 0), **tags):
+                    these_args[arg_name] = None
+                else:
+                    these_args[arg_name] = arg_value.get_data(time + ts_shifts.get(arg_name, 0), **tags, as_is=self.input_as_is)
             else:
                 these_args[arg_name] = arg_value
 
