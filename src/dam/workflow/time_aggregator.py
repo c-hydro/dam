@@ -110,15 +110,7 @@ class TimeAggregator(Processor):
 
             input_agg = [ts.agg_range for ts in relevant_ts]
 
-            these_args = {}
-            ts_shifts = self.timestep_settings or {}
-            for arg_name in self.args:
-                arg_value = args.get(f'{self.pid}.{arg_name}', self.args[arg_name])
-                if isinstance(arg_value, Dataset):
-                    these_args[arg_name] = [arg_value.get_data(t+ts_shifts.get(arg_name,0), **tags) for t in relevant_ts]
-                else:
-                    these_args[arg_name] = arg_value
-        
+            these_args = self.get_args(relevant_ts, args, tags)
             output = self.agg_function(input_data, input_agg = input_agg, this_agg  = agg_range, **these_args)
             if output is None: return
             
@@ -167,6 +159,28 @@ class TimeAggregator(Processor):
 
         super().set_args(nonagg_args)
         self.args.update(agg_args)
+
+    def get_args(self, time: list, args: dict, tags: dict) -> dict:
+        these_args = {}
+        ts_shifts = self.timestep_settings or {}
+        for arg_name in self.args:
+            arg_value = args.get(f'{self.pid}.{arg_name}', self.args[arg_name])
+            if isinstance(arg_value, Dataset):
+                if arg_name in ts_shifts:
+                    if ts_shifts.get(arg_name) == "last":
+                        this_time = [arg_value.get_last_date(now = t.end) for t in time]
+                    else:
+                        this_time = [t + ts_shifts.get(arg_name) for t in time]
+                else:
+                    this_time = [t for t in time]
+                if this_time is None or not arg_value.check_data(this_time[0], **tags):
+                    these_args[arg_name] = None
+                else:
+                    these_args[arg_name] = [arg_value.get_data(t, **tags, as_is=self.input_as_is) for t in this_time]
+            else:
+                these_args[arg_name] = arg_value
+
+        return these_args
 
 @as_DAM_process()
 def aggregate_times(input):

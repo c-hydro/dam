@@ -38,15 +38,7 @@ class TileMerger(Processor):
         if len(input_data) == 0:
             return ## TODO: add a warning or something
 
-        these_args = {}
-        ts_shifts = self.timestep_settings or {}
-        for arg_name in self.args:
-            arg_value = args.get(f'{self.pid}.{arg_name}', self.args[arg_name])
-            if isinstance(arg_value, Dataset):
-                these_args[arg_name] = arg_value.get_data(time+ts_shifts.get(arg_name,0), **tags)
-            else:
-                these_args[arg_name] = arg_value
-
+        these_args = self.get_args(time, args, tags)
         output = self.function(input_data, **these_args)
         if output is None: return
 
@@ -101,15 +93,7 @@ class TileSplitter(Processor):
         else:
             return ##TODO: add a warning or something
             
-        these_args = {}
-        ts_shifts = self.timestep_settings or {}
-        for arg_name in self.args:
-            arg_value = args.get(f'{self.pid}.{arg_name}', self.args[arg_name])
-            if isinstance(arg_value, Dataset):
-                these_args[arg_name] = arg_value.get_data(time+ts_shifts.get(arg_name, 0), **tags)
-            else:
-                these_args[arg_name] = arg_value
-            
+        these_args = self.get_args(time, args, tags)    
         output = self.function(input_data, **these_args)
 
         str_tags = {k.replace(f'{self.pid}.', ''): v for k, v in tags.items()}
