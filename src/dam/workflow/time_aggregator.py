@@ -168,7 +168,7 @@ class TimeAggregator(Processor):
             if isinstance(arg_value, Dataset):
                 if arg_name in ts_shifts:
                     if ts_shifts.get(arg_name) == "last":
-                        this_time = [arg_value.get_last_date(now = t.end) for t in time]
+                        this_time = [arg_value.get_last_date(now = (t-1).end) for t in time]
                     else:
                         this_time = [t + ts_shifts.get(arg_name) for t in time]
                 else:

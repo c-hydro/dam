@@ -97,7 +97,7 @@ class Processor:
             if isinstance(arg_value, Dataset):
                 if arg_name in ts_shifts:
                     if ts_shifts.get(arg_name) == "last":
-                        this_time = arg_value.get_last_ts(now = time.end)
+                        this_time = arg_value.get_last_ts(now = (time-1).end)
                     else:
                         this_time = time + ts_shifts.get(arg_name)
                 else:
