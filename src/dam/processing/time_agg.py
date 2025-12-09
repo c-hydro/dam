@@ -4,6 +4,7 @@ from d3tools.timestepping import TimeRange
 
 import xarray as xr
 import numpy as np
+import datetime as dt
 from typing import Sequence
 
 @as_agg_function()
@@ -114,7 +115,10 @@ def calc_overlap(this_tr: TimeRange, other_tr: TimeRange|list[TimeRange]) -> Tim
      elif isinstance(this_tr, Sequence):
           return [calc_overlap(tr, other_tr) for tr in this_tr]
      
-     if this_tr.start > other_tr.end or this_tr.end < other_tr.start:
+     if other_tr.end.hour == 0 and other_tr.end.minute == 0:
+          other_tr.end = other_tr.end + dt.timedelta(minutes = 1439)
+     
+     if this_tr.start >= other_tr.end or this_tr.end <= other_tr.start:
           return 0
 
      start = max(this_tr.start, other_tr.start)

@@ -48,16 +48,9 @@ class Processor:
         else:
             return ##TODO: add a warning or something
 
-        these_args = {}
-        ts_shifts = self.timestep_settings or {}
-        for arg_name in self.args:
-            arg_value = args.get(f'{self.pid}.{arg_name}', self.args[arg_name])
-            if isinstance(arg_value, Dataset):
-                these_args[arg_name] = arg_value.get_data(time + ts_shifts.get(arg_name, 0), **tags, as_is=self.input_as_is)
-            else:
-                these_args[arg_name] = arg_value
-
+        these_args = self.get_args(time, args, tags)
         output = self.function(input_data, **these_args)
+        if output is None: return
 
         str_tags = {k.replace(f'{self.pid}.', ''): v for k, v in tags.items()}
         if 'tile' in tags: str_tags['tile'] = tags['tile']
@@ -90,7 +83,33 @@ class Processor:
             else:
                 args[key] = set_arg_type(value)
 
+        if 'kwargs' in args:
+            kwargs = args.pop('kwargs')
+            args.update(kwargs)
+
         self.args = args
+
+    def get_args(self, time: dt.datetime|TimeStep, args: dict, tags: dict) -> dict:
+        these_args = {}
+        ts_shifts = self.timestep_settings or {}
+        for arg_name in self.args:
+            arg_value = args.get(f'{self.pid}.{arg_name}', self.args[arg_name])
+            if isinstance(arg_value, Dataset):
+                if arg_name in ts_shifts:
+                    if ts_shifts.get(arg_name) == "last":
+                        this_time = arg_value.get_last_ts(now = (time-1).end)
+                    else:
+                        this_time = time + ts_shifts.get(arg_name)
+                else:
+                    this_time = time
+                if this_time is None or not arg_value.check_data(this_time, **tags):
+                    these_args[arg_name] = None
+                else:
+                    these_args[arg_name] = arg_value.get_data(this_time, **tags, as_is=self.input_as_is)
+            else:
+                these_args[arg_name] = arg_value
+
+        return these_args
 
 def make_process(function_name: str|Callable,
                  args: None|dict = None,
