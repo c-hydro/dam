@@ -36,7 +36,8 @@ dependencies = [
     "unpackqa~=0.2.1",
     "pandas~=2.3.3",
     "geopandas~=1.1.1",
-    "dask~=2025.11.0"
+    "dask~=2025.11.0",
+    "setuptools~=68.1.0"
 ]
 
 [project.urls]
