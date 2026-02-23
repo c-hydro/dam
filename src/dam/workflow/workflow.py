@@ -73,22 +73,46 @@ class DAMWorkflow:
             
     @classmethod
     def from_options(cls, options: Options|dict) -> 'DAMWorkflow':
-        if isinstance(options, dict): options = Options(options)
-        input = options.get('input',ignore_case=True)
+        if isinstance(options, dict):
+            options = Options(options)
+        elif not isinstance(options, Options):
+            raise TypeError("'options' must be a mapping or an Options object")
+
+        input = options.get('input', ignore_case=True)
+        if input is None:
+            raise ValueError("Missing required 'input' in DAM workflow options")
         if isinstance(input, dict):
             input = Dataset.from_options(input)
+        elif not isinstance(input, Dataset):
+            raise TypeError("'input' must be a Dataset or a mapping")
+
         output = options.get('output', None, ignore_case=True)
         if isinstance(output, dict):
             output = Dataset.from_options(output)
+        elif output is not None and not isinstance(output, Dataset):
+            raise TypeError("'output' must be a Dataset, a mapping, or None")
+
         wf_options = options.get('options', None, ignore_case=True)
+        if wf_options is not None and not isinstance(wf_options, dict):
+            raise TypeError("'options' entry must be a mapping or None")
 
         wf = cls(input, output, wf_options)
         processes = options.get(['processes','process_list'], [], ignore_case=True)
+        if processes is None:
+            processes = []
+        if not isinstance(processes, Sequence) or isinstance(processes, (str, bytes, dict)):
+            raise TypeError("'processes' must be a sequence of mappings")
+
         for process in processes:
-            function_str = process.pop('function')
-            output = process.pop('output', None)
-            pid = process.pop('pid', None)
-            wf.add_process(function_str, output, pid, **process)
+            if not isinstance(process, dict):
+                raise TypeError("Each process entry must be a mapping")
+            process_cfg = process.copy()
+            function_str = process_cfg.pop('function', None)
+            if function_str is None:
+                raise ValueError("Each process entry must define a 'function'")
+            output = process_cfg.pop('output', None)
+            pid = process_cfg.pop('pid', None)
+            wf.add_process(function_str, output, pid, **process_cfg)
 
         return wf
     
