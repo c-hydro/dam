@@ -108,7 +108,9 @@ def _match_grid_xarray(input: xr.DataArray,
     nodata_value = nodata_value or input.rio.nodata
 
     def process_chunk(chunk, nodata_value):
-        return chunk.copy(data = np.isclose(chunk, nodata_value, equal_nan=True).astype(np.uint8))
+        mask = chunk.copy(data = np.isclose(chunk, nodata_value, equal_nan=True).astype(np.uint8))
+        mask.rio.write_nodata(255, inplace=True)
+        return mask
     
     chunk_sizes = [np.ceil(s/10) for s in input_da.shape]
 
