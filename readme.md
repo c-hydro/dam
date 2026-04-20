@@ -1,35 +1,38 @@
 # Installation
 
-When installing DAM, there might be issues with the package gdal and its gdal_array functionality. This happens if pip trys to cache a "bad" version of gdal instead of creating new wheels with the version required for this package (see [here](https://stackoverflow.com/questions/75372275/importerror-cannot-import-name-gdal-array-from-osgeo)). This issue really only comes into play when using the warp.match_grid function with nodata_threshold != None at this point, but in the future, it might become a bigger issue.
+### Prerequisites
 
-To solve it. Either install gdal separately _before_ installing DAM, ensure its wheels are build and not taken from cache.
+- Python 3.12 or higher
+- System dependencies: GDAL, PROJ, GEOS (for geospatial packages)
 
+On Ubuntu/Debian:
 ```bash
-# Create a new virtual environment
-venv_dir=".venv"
-python3 -m venv $venv_dir
-
-# Activate the virtual environment
-source $venv_dir/bin/activate
-
-# Install the version of GDAL's python bindings matching the one on your machine (must be >=3.4.3)
-gdalv=$(gdal-config --version)
-pip install --no-cache-dir --force-reinstall "GDAL[numpy]==$gdalv"
-
-# Install DAM
-pip install https://github.com/c-hydro/dam/archive/dev.zip
+sudo apt-get install gdal-bin libgdal-dev libproj-dev libgeos-dev
 ```
 
-Otherwise, pass the same options directly to the DAM installation. This will, however apply the settings to the installation of every required package and be therefore slightly slower.
+### Install from GitHub
+
+dam depends on d3tools, which must be installed first:
 
 ```bash
-# Create a new virtual environment
-venv_dir=".venv"
-python3 -m venv $venv_dir
+pip install git+https://github.com/c-hydro/d3tools@main
+pip install git+https://github.com/c-hydro/dam@main
+```
 
-# Activate the virtual environment
-source $venv_dir/bin/activate
+dam is often used in conjuction with the packages door and dryes, also developed by CIMA foundation, you can install them as well from github:
 
-# Install DAM
-pip install --no-cache-dir --force-reinstall https://github.com/c-hydro/dam/archive/dev.zip
+```bash
+pip install git+https://github.com/c-hydro/door@main
+pip install git+https://github.com/c-hydro/dryes@main
+```
+
+### Install from GitHub using uv (recommended)
+
+```bash
+uv pip install git+https://github.com/c-hydro/d3tools@main
+uv pip install git+https://github.com/c-hydro/dam@main
+
+# optionally
+uv pip install git+https://github.com/c-hydro/door@main
+uv pip install git+https://github.com/c-hydro/dryes@main
 ```
