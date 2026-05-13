@@ -340,3 +340,34 @@ class DAMWorkflow:
                 break
 
         return last_ts_input, last_ts_output
+
+    def get_first_ts(self, **kwargs) -> TimeRange:
+        """
+        Get the first available timesteps for the input datasets, based on input cases
+        """
+
+        input_ds = [self.input]
+        all_processes = self.processes.get('processes', [])
+
+        for p in filter(lambda p: p is not None, all_processes):
+            for a in p.args.values():
+                if isinstance(a, Dataset) and '%Y' in re.sub(r'\{[^}]*\}', '', a.key_pattern):
+                    input_ds.append(a)
+
+        input_dates = []
+        input_cases = self.case_tree[0]
+        for ds in input_ds:
+            first_ts_input = None
+            for case in input_cases.values():
+                input = ds.get_first_ts(**case.tags, **kwargs)
+                if input is None:
+                    input = ds.get_first_ts(**case.options, **kwargs)
+                if input is not None:
+                    first_ts_input = input if first_ts_input is None else max(input, first_ts_input)
+                else:
+                    first_ts_input = None
+                    break
+            input_dates.append(first_ts_input)
+        first_ts_input = min(filter(None, input_dates), default = None)
+
+        return first_ts_input
