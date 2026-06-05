@@ -291,10 +291,11 @@ class DAMWorkflow:
         elif output_type == 'Tmp':
             output_ds = LocalDataset(path = self.tmp_dir, filename = output_pattern)
 
-        if process.continuous_space:
-            output_ds._template = input._template
-        else:
-            output_ds._template = {}
+        if hasattr(input, '_template') and hasattr(output_ds, '_template'):
+            if process.continuous_space:
+                output_ds._template = input._template
+            else:
+                output_ds._template = {}
 
         return output_ds
     
