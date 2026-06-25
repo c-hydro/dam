@@ -117,6 +117,9 @@ def calc_overlap(this_tr: TimeRange, other_tr: TimeRange|list[TimeRange]) -> Tim
      
      if other_tr.end.hour == 0 and other_tr.end.minute == 0:
           other_tr.end = other_tr.end + dt.timedelta(minutes = 1439)
+
+     if this_tr.end.hour == 0 and this_tr.end.minute == 0:
+          this_tr.end = this_tr.end + dt.timedelta(minutes = 1439)
      
      if this_tr.start >= other_tr.end or this_tr.end <= other_tr.start:
           return 0
